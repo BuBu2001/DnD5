@@ -160,6 +160,17 @@ std::vector<std::uint32_t> to_codepoints(const std::string& text) {
     return out;
 }
 
+// Кодовая точка в виде U+XXXX (шестнадцатеричное, заглавные цифры): ключ плитки
+// может быть любым знаком UTF-8, десятичная запись здесь нечитаем (дефект V0.4.1)
+std::string codepoint_text(std::uint32_t cp) {
+    static const char* digits = "0123456789ABCDEF";
+    std::string hex = "U+";
+    for (int shift = 12; shift >= 0; shift -= 4) {
+        hex += digits[(cp >> shift) & 0xF];
+    }
+    return hex;
+}
+
 struct Report {
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
@@ -200,7 +211,7 @@ void validate_map(const JsonValue& map, const FileSystem& fs, Report& report) {
         tile_passable[cps[0]] = tile.at("passable").as_bool(false);
     }
     for (const auto cp : duplicate_keys) {
-        report.error("tiles[].key: дублирующийся ключ U+" + std::to_string(cp));
+        report.error("tiles[].key: дублирующийся ключ " + codepoint_text(cp));
     }
 
     // Слои: уникальный id, ровно один terrain, размеры строк
@@ -230,10 +241,11 @@ void validate_map(const JsonValue& map, const FileSystem& fs, Report& report) {
                 report.error("layers[\"" + id + "\"].rows[" + std::to_string(r) + "]: ширина " +
                              std::to_string(cps.size()) + ", ожидается " + std::to_string(columns));
             }
-            for (const auto cp : cps) {
-                if (tile_names.find(cp) == tile_names.end()) {
+            for (std::size_t c = 0; c < cps.size(); ++c) {
+                if (tile_names.find(cps[c]) == tile_names.end()) {
                     report.error("layers[\"" + id + "\"].rows[" + std::to_string(r) +
-                                 "]: неописанный ключ плитки U+" + std::to_string(cp));
+                                 "] колонка " + std::to_string(c) +
+                                 ": неописанный ключ плитки " + codepoint_text(cps[c]));
                 }
             }
             decoded.push_back(cps);
