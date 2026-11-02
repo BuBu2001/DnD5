@@ -86,13 +86,14 @@ TEST_CASE("input_frame_cycle", "[engine][FR-E03]") {
         input.push_event({platform::InputEvent::Type::KeyDown, platform::Key::Space,
                           platform::MouseButton::Left, 0.f, 0.f, 0});
         REQUIRE(input.is_key_down(platform::Key::Space));
-        REQUIRE(input.is_key_pressed_this_frame(platform::Key::Space) == false);
-        // Фиксация «нажат в этом кадре» происходит в begin_frame по событиям очереди;
-        // здесь проверяем контракт очереди событий
+        // Фиксация «нажат в этом кадре» выполняется в push_event по типу события
+        // (FR-E03): нажатие действует до конца кадра и снимается в end_frame.
+        REQUIRE(input.is_key_pressed_this_frame(platform::Key::Space) == true);
         REQUIRE(input.event_count() == 1u);
         REQUIRE(input.frame_events().front().key == platform::Key::Space);
         input.end_frame();
         REQUIRE(input.is_key_down(platform::Key::Space)); // состояние удерживается
+        REQUIRE(input.is_key_pressed_this_frame(platform::Key::Space) == false);
     }
 
     SECTION("Очередь событий очищается в начале кадра") {

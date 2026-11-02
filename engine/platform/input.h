@@ -15,7 +15,10 @@ namespace engine::platform {
 
 enum class Key : std::uint16_t {
     Unknown = 0, Escape, Enter, Space, Left, Right, Up, Down,
-    A, D, W, S, F1, F2, F3, Tab, Shift, Ctrl, Plus, Minus, Zero
+    A, D, W, S, F1, F2, F3, Tab, Shift, Ctrl, Plus, Minus, Zero,
+    // Игровые привязки схемы управления (docs/controls.md, FR-E03):
+    Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9,
+    Q, E, R, C, I, L, M
 };
 
 enum class MouseButton : std::uint8_t { Left, Right, Middle };
@@ -56,7 +59,22 @@ public:
     void begin_frame();
     void end_frame();
 
-    void push_event(const InputEvent& event) { frame_events_.push_back(event); }
+    // Регистрация события кадра. KeyDown/MouseDown дополнительно фиксируются
+    // как «нажато в этом кадре» (контракт input_frame_cycle, FR-E03); снимок
+    // очищается в begin_frame()/end_frame().
+    void push_event(const InputEvent& event) {
+        switch (event.type) {
+            case InputEvent::Type::KeyDown:
+                keys_pressed_frame_[static_cast<int>(event.key)] = true;
+                break;
+            case InputEvent::Type::MouseDown:
+                mouse_pressed_frame_[static_cast<int>(event.button)] = true;
+                break;
+            default:
+                break;
+        }
+        frame_events_.push_back(event);
+    }
     const std::vector<InputEvent>& frame_events() const { return frame_events_; }
     void clear_events() { frame_events_.clear(); }
 

@@ -42,6 +42,22 @@ Key translate_key(SDL_Keycode code) {
         case SDLK_KP_MINUS: return Key::Minus;
         case SDLK_0:
         case SDLK_KP_0:     return Key::Zero;
+        case SDLK_1: case SDLK_KP_1: return Key::Digit1;
+        case SDLK_2: case SDLK_KP_2: return Key::Digit2;
+        case SDLK_3: case SDLK_KP_3: return Key::Digit3;
+        case SDLK_4: case SDLK_KP_4: return Key::Digit4;
+        case SDLK_5: case SDLK_KP_5: return Key::Digit5;
+        case SDLK_6: case SDLK_KP_6: return Key::Digit6;
+        case SDLK_7: case SDLK_KP_7: return Key::Digit7;
+        case SDLK_8: case SDLK_KP_8: return Key::Digit8;
+        case SDLK_9: case SDLK_KP_9: return Key::Digit9;
+        case SDLK_q:        return Key::Q;
+        case SDLK_e:        return Key::E;
+        case SDLK_r:        return Key::R;
+        case SDLK_c:        return Key::C;
+        case SDLK_i:        return Key::I;
+        case SDLK_l:        return Key::L;
+        case SDLK_m:        return Key::M;
         default: return Key::Unknown;
     }
 }

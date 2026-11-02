@@ -41,6 +41,12 @@ target_compile_definitions(tests_integration PRIVATE DND_ASSETS_ROOT="${DND_ASSE
 target_link_libraries(tests_integration PRIVATE game_logic)
 add_test(NAME integration_tests COMMAND tests_integration)
 
+# Испытания схемы управления (docs/controls.md): маппинг действий, камера, пикинг
+add_executable(tests_controls test_main.cpp controls_tests/controls_tests.cpp)
+target_include_directories(tests_controls PRIVATE ${DND_TESTS_INCLUDES})
+target_link_libraries(tests_controls PRIVATE game_logic)
+add_test(NAME controls_tests COMMAND tests_controls)
+
 add_executable(tests_golden test_main.cpp golden/golden_tests.cpp)
 target_include_directories(tests_golden PRIVATE ${DND_TESTS_INCLUDES})
 target_compile_definitions(tests_golden PRIVATE DND_GOLDEN_FILE="${DND_GOLDEN_PATH}")
@@ -50,7 +56,7 @@ add_test(NAME golden_tests COMMAND tests_golden)
 # Единая цель-обёртка: прогон всех тестов одной командой (удобство разработчика)
 add_custom_target(check_all
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS tests_rules tests_engine tests_platform tests_integration tests_golden
+    DEPENDS tests_rules tests_engine tests_platform tests_integration tests_controls tests_golden
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
