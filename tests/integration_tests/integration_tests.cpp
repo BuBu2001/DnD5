@@ -19,6 +19,7 @@
 #include "render/null_renderer.h"
 #include "resource/json_loader.h"
 #include "resource/schema_registry.h"
+#include "resource/texture_loader.h"
 #include "rules/conditions.h"
 #include "rules/random_provider.h"
 #include "save/combat_save_state.h"
@@ -635,4 +636,36 @@ TEST_CASE("ui_widgets_show_full_breakdown", "[integration][M8][UI-E03][UI-E04]")
     ui.draw(renderer);
     REQUIRE(renderer.primitives_drawn() > 0);
     REQUIRE(renderer.text_calls() > 0); // текст рисуется через контракт (FR-E29)
+}
+
+// --- texture_loader_png (FR-E45, таблица 4.16: stb) ------------------------------
+// Графика сгенерирована scripts/gen_assets.py (docs/assets.md) и декодируется
+// движком в RGBA: токены 32×32, портреты 64×64, битые данные не роняют загрузчик.
+TEST_CASE("texture_loader_png", "[integration][FR-E45]") {
+    auto fs = make_fs();
+    engine::resource::TextureLoader loader(fs);
+
+    const auto fighter = loader.load_png("assets:/textures/tokens/fighter.png");
+    REQUIRE(fighter.is_ok());
+    CHECK(fighter.value().width == 32);
+    CHECK(fighter.value().height == 32);
+    CHECK(fighter.value().pixels.size() == 32u * 32u * 4u);
+    // Угол спрайта прозрачен, центр фигуры непрозрачен (контент действительно есть)
+    CHECK(fighter.value().pixels[3] == 0);
+    const std::size_t center = (16u * 32u + 16u) * 4u + 3u;
+    CHECK(fighter.value().pixels[center] == 255);
+
+    const auto portrait = loader.load_png("assets:/textures/portraits/goblin.png");
+    REQUIRE(portrait.is_ok());
+    CHECK(portrait.value().width == 64);
+    CHECK(portrait.value().height == 64);
+
+    // Повреждённые данные: ошибка без аварийного завершения (NFR-E09)
+    const std::uint8_t garbage[] = {0x89, 'P', 'N', 'G', 1, 2, 3, 4, 5};
+    const auto bad = engine::resource::TextureLoader::decode_png(garbage, sizeof(garbage));
+    CHECK(bad.is_ok() == false);
+
+    // Отсутствующий файл: ошибка с сообщением
+    const auto missing = loader.load_png("assets:/textures/no_such.png");
+    CHECK(missing.is_ok() == false);
 }

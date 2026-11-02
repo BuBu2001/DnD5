@@ -15,6 +15,7 @@ add_library(engine STATIC
     resource/schema_validator.cpp
     resource/schema_registry.cpp
     resource/json_loader.cpp
+    resource/texture_loader.cpp
     scene/save_slot.cpp
     scene/save_system.cpp
     ui/control.cpp
@@ -23,6 +24,8 @@ add_library(engine STATIC
 )
 
 target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# stb (third_party/stb) — декодирование PNG в resource/texture_loader.cpp (табл. 4.16)
+target_include_directories(engine PRIVATE ${CMAKE_SOURCE_DIR}/third_party/stb)
 target_compile_features(engine PUBLIC cxx_std_20)
 
 # platform/window.cpp (формула (1)), render/font_atlas.cpp и render/gl_functions.cpp
