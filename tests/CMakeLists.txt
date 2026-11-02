@@ -35,7 +35,8 @@ target_include_directories(tests_platform PRIVATE ${DND_TESTS_INCLUDES})
 target_link_libraries(tests_platform PRIVATE engine)
 add_test(NAME platform_tests COMMAND tests_platform)
 
-add_executable(tests_integration test_main.cpp integration_tests/integration_tests.cpp)
+add_executable(tests_integration test_main.cpp integration_tests/integration_tests.cpp
+                                 integration_tests/combat_play_tests.cpp)
 target_include_directories(tests_integration PRIVATE ${DND_TESTS_INCLUDES})
 target_compile_definitions(tests_integration PRIVATE DND_ASSETS_ROOT="${DND_ASSETS_DIR}")
 target_link_libraries(tests_integration PRIVATE game_logic)

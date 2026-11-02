@@ -40,6 +40,11 @@
 #include "ui/ui_root.h"
 #include "ui/widgets.h"
 
+#include "combat/combat_play_scene.h"
+#include "controls/control_scheme.h"
+#include "ui_widgets/combat_widgets.h"
+#include "ui_widgets/dice_breakdown_panel.h"
+
 #ifdef DND_ENGINE_WITH_SDL2
 #include <SDL.h>
 
@@ -201,6 +206,7 @@ std::vector<std::uint8_t> make_token_texture() {
 struct WindowedOptions {
     int max_frames = 0;
     std::string screenshot_bmp; // пусто — снимок не сохраняется
+    bool demo_scene = false;    // true — старая демо-сцена, false — боевая (по умолчанию)
 };
 
 int run_windowed(const core::Config& config, const WindowedOptions& options) {
@@ -257,7 +263,24 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
     }
 
     scene::SceneStack scenes;
-    scenes.push(std::make_unique<DemoScene>(*renderer));
+    core::FileSystem fs("assets");
+    rules::SeededRandomProvider rng(42);   // ГСЧ внедряется в игровой слой (E-D07)
+    rules::DiceRoller roller(rng);
+    core::EventBus bus;
+
+    game::CombatPlayScene* combat_ptr = nullptr;
+    if (!options.demo_scene) {
+        auto combat = std::make_unique<game::CombatPlayScene>(*renderer, bus, roller, fs);
+        // Провайдер текстур: RGBA-пиксели → GL-текстуры (docs/assets.md)
+        combat->set_texture_provider([&](int w, int h, const std::uint8_t* pixels) {
+            return gl_renderer->ready() ? gl_renderer->create_texture_rgba(w, h, pixels)
+                                        : render::kInvalidTexture;
+        });
+        combat_ptr = combat.get();
+        scenes.push(std::move(combat));
+    } else {
+        scenes.push(std::make_unique<DemoScene>(*renderer));
+    }
     // Стек владеет сценой: указатель используется только для метрик отладочной панели
     auto* scene_ptr = dynamic_cast<DemoScene*>(scenes.top());
     if (scene_ptr != nullptr) scene_ptr->set_texture(token);
@@ -266,28 +289,75 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
     auto viewport = ui_root.resize(settings.window_width, settings.window_height);
     (void)viewport;
 
-    auto title = std::make_shared<ui::Label>("D&D 5e — каркас движка V0.4");
+    auto title = std::make_shared<ui::Label>(
+        options.demo_scene ? "D&D 5e — каркас движка V0.4"
+                           : "D&D 5e — бой (вертикальный срез, Приложение Д)");
     title->set_name("title");
     title->set_position(ui::Vec2{16.f, 16.f});
-    title->set_size(ui::Size{520.f, 28.f});
+    title->set_size(ui::Size{560.f, 28.f});
     title->set_font_size(20.f);
     title->set_color(render::Color{0.93f, 0.9f, 0.8f, 1.f});
     ui_root.add(title);
 
-    auto status = std::make_shared<ui::Label>("F1 — панель отладки, F2 — звук, Esc — выход");
+    auto status = std::make_shared<ui::Label>(
+        "WASD — камера, ЛКМ — выбор/ход, ПКМ — отмена, E — конец хода, колесо — зум, "
+        "F1 — отладка, Esc — выход");
     status->set_name("status");
-    status->set_position(ui::Vec2{16.f, 660.f});
-    status->set_size(ui::Size{760.f, 24.f});
+    status->set_position(ui::Vec2{16.f, 668.f});
+    status->set_size(ui::Size{1248.f, 24.f});
     status->set_font_size(14.f);
     ui_root.add(status);
+
+    // Боевые панели (E-D12: виджеты принимают только DTO)
+    std::shared_ptr<game::InitiativeTracker> initiative_panel;
+    std::shared_ptr<game::TurnResourceBar> resources_panel;
+    std::shared_ptr<game::CombatLog> combat_log;
+    std::shared_ptr<game::DiceBreakdownPanel> breakdown_panel;
+    if (combat_ptr != nullptr) {
+        initiative_panel = std::make_shared<game::InitiativeTracker>();
+        initiative_panel->set_name("initiative");
+        initiative_panel->set_position(ui::Vec2{964.f, 16.f});
+        initiative_panel->set_size(ui::Size{300.f, 200.f});
+        ui_root.add(initiative_panel);
+
+        resources_panel = std::make_shared<game::TurnResourceBar>();
+        resources_panel->set_name("resources");
+        resources_panel->set_position(ui::Vec2{964.f, 224.f});
+        resources_panel->set_size(ui::Size{300.f, 110.f});
+        ui_root.add(resources_panel);
+
+        breakdown_panel = std::make_shared<game::DiceBreakdownPanel>();
+        breakdown_panel->set_name("breakdown");
+        breakdown_panel->set_position(ui::Vec2{964.f, 342.f});
+        breakdown_panel->set_size(ui::Size{300.f, 210.f});
+        ui_root.add(breakdown_panel);
+
+        combat_log = std::make_shared<game::CombatLog>();
+        combat_log->set_name("combat_log");
+        combat_log->set_position(ui::Vec2{16.f, 560.f});
+        combat_log->set_size(ui::Size{620.f, 100.f});
+        ui_root.add(combat_log);
+
+        // События боя → журнал и панель разбора (подписка на шину, FR-E10)
+        bus.subscribe<game::AttackResolvedEvent>(
+            [combat_log, breakdown_panel](const game::AttackResolvedEvent& e) {
+                if (combat_log) {
+                    combat_log->append(game::CombatLogFilter::Rolls, e.description);
+                    if (!e.damage_notation.empty() && e.hit) {
+                        combat_log->append(game::CombatLogFilter::Damage,
+                                           "Урон: " + e.damage_notation + " = " +
+                                               std::to_string(e.damage));
+                    }
+                    combat_log->scroll_to_latest();
+                }
+                if (breakdown_panel) breakdown_panel->set_breakdown(e.attack_breakdown);
+            });
+    }
 
     auto roll_button = std::make_shared<ui::Button>("Проверка (d20+5, помеха)");
     roll_button->set_name("roll");
     roll_button->set_position(ui::Vec2{16.f, 52.f});
     roll_button->set_size(ui::Size{260.f, 36.f});
-
-    rules::SeededRandomProvider rng(42);   // ГСЧ внедряется в игровой слой (E-D07)
-    rules::DiceRoller roller(rng);
     roll_button->set_on_click([&] {
         const auto r = roller.roll(15, 5, true);
         char buffer[160];
@@ -309,6 +379,10 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
     std::uint32_t logic_steps = 0;
     bool running = true;
     bool music_started = false;
+
+    // Маппинг игровых действий (docs/controls.md, FR-E03)
+    platform::InputActions actions;
+    game::build_control_scheme(actions);
 
     loop.set_running([&] { return running; });
     loop.set_poll([&] {
@@ -339,11 +413,30 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
         for (auto e : platform::InputToUiAdapter::translate(input, ui_root)) {
             ui_root.dispatch_event(e);
         }
+
+        // Игровые действия → боевая сцена (docs/controls.md). Клики по областям
+        // боевых панелей не должны «проваливаться» на поле (E-D12: UI приоритетен).
+        if (combat_ptr != nullptr) {
+            actions.update(input);
+            const float mx = input.mouse_x();
+            const float my = input.mouse_y();
+            const bool ui_captured =
+                (mx >= 964.f && my <= 560.f) || (mx <= 640.f && my >= 556.f) ||
+                (mx <= 280.f && my <= 92.f);
+            combat_ptr->set_mouse_logical(mx, my);
+            combat_ptr->handle_actions(actions, ui_captured);
+        }
         input.end_frame();
     });
     loop.set_update([&](double dt_logic) {
         scenes.update(dt_logic);
         ui_root.update(dt_logic);
+        // Панели боя обновляются из DTO сцены (E-D12)
+        if (combat_ptr != nullptr) {
+            if (initiative_panel) initiative_panel->set_tracker(combat_ptr->initiative_dto());
+            if (resources_panel) resources_panel->set_resources(combat_ptr->turn_resources_dto());
+            if (status) status->set_text(combat_ptr->status());
+        }
     });
     loop.set_render([&](double alpha) {
         (void)alpha;
@@ -351,9 +444,17 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
         scenes.render(alpha);
         ui_root.draw(*renderer);
 
-        const auto stats = overlay.make_stats(renderer->draw_call_count(),
-                                              scene_ptr != nullptr ? scene_ptr->sprites_queued() : 0u,
-                                              scene_ptr != nullptr ? scene_ptr->entity_count() : 0u,
+        const std::uint32_t sprites = scene_ptr != nullptr
+                                          ? scene_ptr->sprites_queued()
+                                          : static_cast<std::uint32_t>(combat_ptr != nullptr
+                                                                       ? combat_ptr->renders()
+                                                                       : 0u);
+        const std::size_t entities = scene_ptr != nullptr
+                                         ? scene_ptr->entity_count()
+                                         : (combat_ptr != nullptr ? combat_ptr->combat()
+                                                                      .combatant_count()
+                                                                  : 0u);
+        const auto stats = overlay.make_stats(renderer->draw_call_count(), sprites, entities,
                                               audio->loaded_sounds(), logic_steps,
                                               static_cast<std::uint32_t>(
                                                   loop.dropped_steps_last_frame()));
@@ -438,17 +539,21 @@ int main(int argc, char** argv) {
 
     bool windowed = false;
     int max_frames = 0;
+    bool demo_scene = false;
     std::string screenshot;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--window") windowed = true;
         else if (arg == "--headless") windowed = false;
+        else if (arg == "--demo") demo_scene = true;
         else if (arg.rfind("--frames=", 0) == 0) max_frames = std::atoi(arg.c_str() + 9);
         else if (arg.rfind("--screenshot=", 0) == 0) screenshot = arg.substr(13);
     }
 
 #ifdef DND_ENGINE_WITH_SDL2
-    if (windowed) return run_windowed(config, WindowedOptions{max_frames, screenshot});
+    if (windowed) {
+        return run_windowed(config, WindowedOptions{max_frames, screenshot, demo_scene});
+    }
 #else
     if (windowed) {
         core::Log::instance().warn(

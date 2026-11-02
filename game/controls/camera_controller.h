@@ -18,6 +18,12 @@ public:
           viewport_w_(viewport_w), viewport_h_(viewport_h) {}
 
     void set_viewport(float w, float h) { viewport_w_ = w; viewport_h_ = h; }
+    // Размер мира задаётся после загрузки карты (контроллер неизменяем — ссылка)
+    void set_world(float w, float h) {
+        world_w_ = w;
+        world_h_ = h;
+        clamp_to_map();
+    }
     void set_pan_speed(float pixels_per_second) { pan_speed_ = pixels_per_second; }
     float pan_speed() const { return pan_speed_; }
 
