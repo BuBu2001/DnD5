@@ -9,7 +9,7 @@
 # Headless-сборка (ядро + правила + тесты, без SDL2/OpenGL)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
-ctest --test-dir build --output-on-failure        # 58 кейсов / 957 проверок
+ctest --test-dir build --output-on-failure        # 68 кейсов / 1182 проверки
 
 # Полная сборка с окном SDL2 и OpenGL 3.3 Core
 cmake -S . -B build -DDND_WITH_SDL2=ON
@@ -86,8 +86,8 @@ E — конец хода, Tab и 1…4 — выбор бойца, F1 — отл
   инициатива с tie-breaker, temp HP, сопротивления, состояния, attunement,
   экономика действий, слои модификаторов, 19 формул п. Г.13.
 - **Вертикальный срез (Приложение Д):** комната 20×15, Fighter + Rogue vs 2 гоблина.
-- **Качество:** `-Werror`, пресеты MSVC/GCC, 5 уровней тестов + золотой эталон
-  (seed 42) + бенчмарки с порогами; 58 кейсов / 957 проверок, ctest 5/5.
+- **Качество:** `-Werror`, пресеты MSVC/GCC, 6 уровней тестов + золотой эталон
+  (seed 42) + бенчмарки с порогами; 68 кейсов / 1182 проверки, ctest 6/6.
 
 ## Документация
 

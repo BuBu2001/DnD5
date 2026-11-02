@@ -135,13 +135,31 @@
 | NFR-E12 (предупреждения как ошибки) | CMakeLists.txt | `-Wall -Wextra -Werror` | сборка всех целей |
 | NFR-E12 (самодостаточность заголовков) | scripts/hdrcheck.sh | — | tool: `hdrcheck.sh` |
 
-## 10. Не закрыто в V0.4 (перенос на V1)
+## 10. Не закрыто в V0.4 (перенос на V1; статусы уточнены в V0.5)
 
 | Требование | Причина | Этап |
 |------------|---------|------|
 | FR-E04, FR-E05 (геймпад, сенсорный ввод) | статус V1 по п. 4.1.2.5 ТЗ DOC-04 | M11 |
-| FR-E35…E39 (подсветка зон, траектории) | статус V1 по п. 4.1.3.2 | M5 |
+| FR-E36…E39 (траектории, зоны угрозы) | статус V1 по п. 4.1.3.2; подсветка достижимых клеток (основа FR-E35) реализована в V0.5 | M5 |
 | FR-E54 (плавное затухание музыки) | статус V1 по п. 4.1.5.2 | M9 |
 | FR-E96…E99 (редактор сцен) | не входит в MVP | M11 |
-| Стилевой шрифт .ttf (stb_truetype) | third_party/stb не заполнен; используется встроенный растровый шрифт | M2 |
-| nlohmann/json, tinyxml2, SDL2_image | third_party пуст; DR-01 (собственный парсер JSON) | M0/M4 |
+| Стилевой шрифт .ttf (stb_truetype) | используется встроенный растровый шрифт (DR-03); stb_image вендорен в V0.4.9 | M2 |
+| nlohmann/json, tinyxml2, SDL2_image | DR-01/DR-02 (собственный парсер JSON); stb_image закрывает загрузку PNG | M0/M4 |
+
+## 11. Дополнения V0.4.8…V0.5.1 (играбельный боевой режим)
+
+| Требование | Модуль | Символы | Проверка |
+|------------|--------|---------|----------|
+| FR-E03 (клавиатура/мышь, действия) | engine/platform/input_actions | `InputActions::update/pressed/held/wheel/axis` | controls: `control_scheme_matches_controls_doc`, `input_actions_mouse_and_wheel` |
+| FR-E03 (раскладка WASD + горячие клавиши) | game/controls/control_scheme | `build_control_scheme`, `actions::*` | controls: `control_scheme_matches_controls_doc`; docs/controls.md |
+| FR-E25, FR-E35 (камера, зум 0.5×…4×) | game/controls/camera_controller | `CameraController::update/clamp_to_map/set_world` | controls: `camera_controller_pans_with_wasd_and_clamps`, `camera_controller_zoom_limits` |
+| FR-E33 (курсор → клетка) | game/controls/cell_picking | `pick_cell` | controls: `cell_picking_maps_mouse_to_grid_cell` |
+| FR-E03 (кадровый цикл «нажат в кадре») | engine/platform/input | `InputState::push_event` | platform: `input_frame_cycle` |
+| п. 4.1.8 (перемещение по клеткам, стоимость) | game/combat/combat_scene | `CombatScene::move_unit`, `find_path`, `TacticalGrid::entry_cost_feet` | integration: `combat_play_select_and_move_by_rules`, `combat_play_reachable_respects_difficult_terrain` |
+| FR-E35-основа (подсветка достижимых клеток) | game/combat/combat_scene | `CombatScene::reachable_cells` | integration: `combat_play_reachable_respects_difficult_terrain` |
+| п. Г.6 (экономика действий в бою) | game/combat | `CombatScene::begin_turn`, `Combatant::action_used` | integration: `combat_play_attack_and_turn_flow` |
+| Приложение Д (вертикальный срез — играбельно) | game/combat/combat_play_scene | `CombatPlayScene` | integration: `combat_play_loads_map_and_spawns`; оконный прогон `game --window` |
+| DATA-E02…E04 (карта, спавны, террейн) | game/combat/combat_play_scene | `CombatPlayScene::load_map` | integration: `combat_play_loads_map_and_spawns`; tool: `map_validator` |
+| FR-E45 (загрузка растров, PNG) | engine/resource/texture_loader | `TextureLoader::load_png/decode_png` | integration: `texture_loader_png` |
+| FR-E50…E52 (звук в бою) | game/combat/combat_play_scene, engine/audio | `set_audio`, `play_sfx` | оконный прогон; отказ аудио не прерывает игру (п. 4.2.3) |
+| E-D12 (боевые панели — только DTO) | game/main.cpp, game/ui_widgets | `initiative_dto/turn_resources_dto`, `AttackResolvedEvent` | integration: `ui_widgets_show_full_breakdown`; оконный прогон |
