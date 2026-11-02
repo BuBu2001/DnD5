@@ -276,6 +276,7 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
             return gl_renderer->ready() ? gl_renderer->create_texture_rgba(w, h, pixels)
                                         : render::kInvalidTexture;
         });
+        combat->set_audio(audio);
         combat_ptr = combat.get();
         scenes.push(std::move(combat));
     } else {
@@ -396,7 +397,7 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
             if (e.key == platform::Key::F1) overlay.toggle();
             if (e.key == platform::Key::F2) {
                 if (!music_started) {
-                    audio->play_music("assets:/audio/battle_theme.ogg", /*loop=*/true);
+                    audio->play_music("assets:/audio/battle_theme.wav", /*loop=*/true);
                     music_started = true;
                 } else {
                     audio->stop_music();

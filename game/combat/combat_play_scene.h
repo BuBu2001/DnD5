@@ -16,6 +16,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "audio/audio_system.h"
 #include "combat/combat_scene.h"
 #include "controls/camera_controller.h"
 #include "controls/cell_picking.h"
@@ -49,6 +50,8 @@ public:
 
     void set_texture_provider(TextureProvider provider) { texture_provider_ = std::move(provider); }
     void set_map_path(std::string path) { map_path_ = std::move(path); }
+    // Звук необязателен (headless/без аудиоустройства): nullptr — тишина (п. 4.2.3)
+    void set_audio(engine::audio::IAudioSystem* audio) { audio_ = audio; }
 
     // Загрузка карты/спавнов/текстур; при ошибке данных — карта 20×15 по умолчанию
     // (вертикальный срез Приложения Д) и процедурные цвета вместо спрайтов.
@@ -135,6 +138,8 @@ public:
                 last_breakdown_ = ev.attack_breakdown;
                 has_breakdown_ = true;
                 status_ = ev.description;
+                play_sfx(ev.hit ? "assets:/audio/attack_hit.wav"
+                                : "assets:/audio/attack_miss.wav");
                 check_battle_end();
             } else {
                 status_ = "Цель слишком далеко: нужна смежная клетка";
@@ -145,6 +150,7 @@ public:
         if (occupant == CombatScene::kNoIndex) {
             const auto result = combat_.move_unit(selected_, cell);
             if (result.ok) {
+                play_sfx("assets:/audio/step.wav");
                 status_ = unit.name + ": перемещение (−" + std::to_string(result.cost_feet) +
                           " футов, остаток " + std::to_string(unit.movement_remaining_feet) + ")";
             } else {
@@ -581,6 +587,8 @@ private:
                 last_breakdown_ = ev.attack_breakdown;
                 has_breakdown_ = true;
                 status_ = ev.description;
+                play_sfx(ev.hit ? "assets:/audio/attack_hit.wav"
+                                : "assets:/audio/attack_miss.wav");
                 check_battle_end();
             }
         }
@@ -617,6 +625,10 @@ private:
         }
     }
 
+    void play_sfx(const std::string& path) {
+        if (audio_ != nullptr) audio_->play_sfx(path); // ошибка — только журнал (FR-E52)
+    }
+
     void refresh_reachable() {
         reachable_cache_.clear();
         if (selected_ != kNone && selected_ < combat_.combatant_count()) {
@@ -631,6 +643,7 @@ private:
     engine::render::Camera2D camera_;
     CameraController camera_controller_;
     TextureProvider texture_provider_;
+    engine::audio::IAudioSystem* audio_ = nullptr;
     std::string map_path_ = "assets:/maps/goblin_ambush.json";
 
     std::unordered_map<std::string, engine::render::TextureId> textures_;
