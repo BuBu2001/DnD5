@@ -1,0 +1,46 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/enemy.schema.json",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "name", "abilities", "ac", "hp", "speed_feet"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "name": { "type": "string", "minLength": 1 },
+    "challenge_rating": { "type": "number", "minimum": 0, "maximum": 30 },
+    "abilities": {
+      "type": "object",
+      "required": ["Str", "Dex", "Con", "Int", "Wis", "Cha"],
+      "properties": {
+        "Str": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "Dex": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "Con": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "Int": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "Wis": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "Cha": { "type": "integer", "minimum": 1, "maximum": 30 }
+      }
+    },
+    "ac": { "type": "integer", "minimum": 1, "maximum": 40 },
+    "hp": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "speed_feet": { "type": "integer", "minimum": 0, "maximum": 120 },
+    "attacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "attack_bonus", "damage", "damage_type"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "name": { "type": "string" },
+          "attack_bonus": { "type": "integer", "minimum": -5, "maximum": 20 },
+          "damage": { "type": "string" },
+          "damage_type": { "type": "string",
+                           "enum": ["Bludgeoning", "Piercing", "Slashing", "Fire", "Cold",
+                                    "Lightning", "Acid", "Poison", "Necrotic", "Radiant",
+                                    "Force", "Psychic", "Thunder"] },
+          "range_feet": { "type": "integer", "minimum": 5, "maximum": 600 }
+        }
+      }
+    }
+  }
+}

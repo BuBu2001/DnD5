@@ -1,0 +1,15 @@
+{
+  "$schema": "schemas/item.schema.json",
+  "schema_version": 1,
+  "id": "Item_Longsword",
+  "name": "Длинный меч",
+  "description": "Одноручное рубящее оружие; свойство «универсальное» (1d10 двумя руками).",
+  "components": [
+    {
+      "type": "Weapon",
+      "base_damage": "1d8",
+      "damage_type": "Slashing",
+      "properties": ["Versatile"]
+    }
+  ]
+}

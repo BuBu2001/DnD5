@@ -1,0 +1,15 @@
+{
+  "$schema": "schemas/class.schema.json",
+  "schema_version": 1,
+  "id": "Class_Rogue",
+  "name": "Плут",
+  "hit_die": 8,
+  "primary_ability": "Dex",
+  "armor_proficiency": ["Light"],
+  "weapon_proficiency": ["Weapon_Shortsword", "Weapon_Dagger"],
+  "saving_throw_proficiency": ["Dex", "Int"],
+  "features": [
+    { "id": "Feature_SneakAttack", "name": "Скрытая атака", "category": 1, "min_level": 1 },
+    { "id": "Feature_CunningAction", "name": "Хитрые действия (Dash/Disengage/Hide)", "category": 2, "min_level": 2 }
+  ]
+}

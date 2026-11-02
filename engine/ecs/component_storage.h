@@ -25,9 +25,11 @@ class ComponentStorage final : public IComponentStorage {
 public:
     template <typename... Args>
     T& emplace(EntityId entity, Args&&... args) {
-        auto [it, inserted] = components_.try_emplace(
-            entity.index, Entry{entity.generation, std::forward<Args>(args)...});
-        if (!inserted) it->second = Entry{entity.generation, T{std::forward<Args>(args)...}};
+        // Значение компонента всегда конструируется как T{args...}: это единый
+        // путь для компонентов с конструктором, агрегатов и типов без аргументов.
+        Entry entry{entity.generation, T{std::forward<Args>(args)...}};
+        auto [it, inserted] = components_.try_emplace(entity.index, entry);
+        if (!inserted) it->second = std::move(entry);
         return it->second.value;
     }
 
@@ -60,8 +62,8 @@ public:
 
 private:
     struct Entry {
-        std::uint32_t generation;
-        T value;
+        std::uint32_t generation = 0;
+        T value{};
     };
     std::unordered_map<std::uint32_t, Entry> components_;
 };

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <vector>
 
@@ -56,7 +57,7 @@ public:
 
     // Манхэттенское расстояние в клетках (базовая метрика; диагонали — V1)
     static int manhattan(const Cell& a, const Cell& b) {
-        return abs(a.x - b.x) + abs(a.y - b.y);
+        return std::abs(a.x - b.x) + std::abs(a.y - b.y);
     }
 
     // Проверка достижимости при прямой траектории без поиска пути:

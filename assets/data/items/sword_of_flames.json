@@ -1,0 +1,12 @@
+{
+  "$schema": "schemas/item.schema.json",
+  "schema_version": 1,
+  "id": "Item_Sword_of_Flames",
+  "name": "Пламенный меч",
+  "description": "Эталонный пример предмета как набора компонентов (п. Г.9 ТЗ DOC-04): Weapon + OnHitEffect + AttunementRequired.",
+  "components": [
+    { "type": "Weapon", "base_damage": "1d8", "damage_type": "Slashing", "properties": ["Versatile"] },
+    { "type": "OnHitEffect", "effect": "AddDamage", "damage": "1d4", "damage_type": "Fire" },
+    { "type": "AttunementRequired" }
+  ]
+}

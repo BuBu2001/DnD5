@@ -1,0 +1,14 @@
+{
+  "$schema": "schemas/class.schema.json",
+  "schema_version": 1,
+  "id": "Class_Barbarian",
+  "name": "Варвар",
+  "hit_die": 12,
+  "primary_ability": "Str",
+  "armor_proficiency": ["Light", "Medium"],
+  "weapon_proficiency": ["Weapon_Longsword", "Weapon_Dagger"],
+  "saving_throw_proficiency": ["Str", "Con"],
+  "features": [
+    { "id": "Feature_Rage", "name": "Ярость (упрощение MVP: +2 к урону ближнего боя)", "category": 1, "min_level": 1 }
+  ]
+}

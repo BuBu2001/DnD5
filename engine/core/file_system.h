@@ -22,6 +22,11 @@ public:
     Result<std::vector<unsigned char>> read_bytes(const std::string& virtual_path) const;
     bool exists(const std::string& virtual_path) const;
 
+    // Перечисление каталога: возвращает виртуальные пути assets:/… в алфавитном
+    // порядке (детерминизм, NFR-E09). Пустой список — каталог отсутствует или пуст.
+    // Используется реестром схем (FR-E47) и упаковщиком ассетов (tools/asset_packer).
+    std::vector<std::string> list_directory(const std::string& virtual_dir) const;
+
     const std::string& root() const { return root_; }
 
 private:

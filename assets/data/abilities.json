@@ -1,0 +1,27 @@
+{
+  "$schema": "schemas/ability_table.schema.json",
+  "schema_version": 1,
+  "id": "AbilityTable_Core",
+  "comment": "Состав характеристик и таблица модификаторов (DOC-01 FR-K10, FR-K11). Модификатор вычисляется формулой floor((Score-10)/2); таблица приведена для сверки и для тестов (AC-K01). Значения вне 8..20 считаются той же формулой.",
+  "abilities": [
+    { "code": "Str", "name": "Сила",          "name_en": "Strength",     "affects": "Ближний бой, переносимый вес, навык «Атлетика»" },
+    { "code": "Dex", "name": "Ловкость",      "name_en": "Dexterity",    "affects": "Скрытность, дальний бой, инициатива, КД (если нет тяжёлой брони)" },
+    { "code": "Con", "name": "Телосложение",  "name_en": "Constitution", "affects": "Хиты, концентрация на поддержании заклинаний" },
+    { "code": "Int", "name": "Интеллект",     "name_en": "Intelligence", "affects": "Магия волшебника, навыки «История», «Расследование»" },
+    { "code": "Wis", "name": "Мудрость",      "name_en": "Wisdom",       "affects": "Восприятие, выживание, магия жреца/друида/следопыта" },
+    { "code": "Cha", "name": "Харизма",       "name_en": "Charisma",     "affects": "Убеждение, запугивание, обман, магия барда/колдуна/паладина/чародея" }
+  ],
+  "player_start_range": { "min": 8, "max": 15 },
+  "allowed_range": { "min": 1, "max": 20 },
+  "modifier_table": [
+    { "score": 8,  "modifier": -1 }, { "score": 9,  "modifier": -1 },
+    { "score": 10, "modifier": 0 },  { "score": 11, "modifier": 0 },
+    { "score": 12, "modifier": 1 },  { "score": 13, "modifier": 1 },
+    { "score": 14, "modifier": 2 },  { "score": 15, "modifier": 2 },
+    { "score": 16, "modifier": 3 },  { "score": 17, "modifier": 3 },
+    { "score": 18, "modifier": 4 },  { "score": 19, "modifier": 4 },
+    { "score": 20, "modifier": 5 }
+  ],
+  "feet_per_cell": 5,
+  "standard_speed_feet": 30
+}

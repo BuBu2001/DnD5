@@ -1,0 +1,13 @@
+{
+  "$schema": "schemas/character.schema.json",
+  "schema_version": 1,
+  "id": "Character_PlayerRogue",
+  "name": "Плут (игрок)",
+  "class_id": "Class_Rogue",
+  "level": 1,
+  "abilities": { "Str": 10, "Dex": 16, "Con": 12, "Int": 13, "Wis": 11, "Cha": 10 },
+  "hp_max": 9,
+  "speed_feet": 30,
+  "equipment": ["Item_Longsword"],
+  "features": ["Feature_SneakAttack"]
+}

@@ -1,0 +1,32 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/class.schema.json",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "name", "hit_die", "features"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "name": { "type": "string", "minLength": 1 },
+    "hit_die": { "type": "integer", "minimum": 4, "maximum": 20 },
+    "primary_ability": { "type": "string", "enum": ["Str", "Dex", "Con", "Int", "Wis", "Cha"] },
+    "armor_proficiency": { "type": "array",
+                           "items": { "type": "string", "enum": ["None", "Light", "Medium", "Heavy"] } },
+    "weapon_proficiency": { "type": "array", "items": { "type": "string" } },
+    "saving_throw_proficiency": { "type": "array",
+                                  "items": { "type": "string", "enum": ["Str", "Dex", "Con", "Int", "Wis", "Cha"] } },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "name": { "type": "string" },
+          "category": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "min_level": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      }
+    }
+  }
+}

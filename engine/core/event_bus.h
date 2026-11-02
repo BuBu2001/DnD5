@@ -2,6 +2,7 @@
 // События несут DTO, а не ссылки на внутренние структуры модуля правил (п. 4.1.11.6).
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <typeindex>

@@ -1,0 +1,16 @@
+{
+  "$schema": "schemas/class.schema.json",
+  "schema_version": 1,
+  "id": "Class_Fighter",
+  "name": "Воин",
+  "hit_die": 10,
+  "primary_ability": "Str",
+  "armor_proficiency": ["Light", "Medium", "Heavy"],
+  "weapon_proficiency": ["Weapon_Longsword", "Weapon_Shortsword", "Weapon_Dagger"],
+  "saving_throw_proficiency": ["Str", "Con"],
+  "features": [
+    { "id": "Feature_FightingStyle", "name": "Боевой стиль", "category": 1, "min_level": 1 },
+    { "id": "Feature_SecondWind",    "name": "Второе дыхание", "category": 2, "min_level": 1 },
+    { "id": "Feature_ActionSurge",   "name": "Всплеск действий", "category": 2, "min_level": 2 }
+  ]
+}

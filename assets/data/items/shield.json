@@ -1,0 +1,11 @@
+{
+  "$schema": "schemas/item.schema.json",
+  "schema_version": 1,
+  "id": "Item_Shield",
+  "name": "Щит",
+  "description": "+2 к итоговому AC поверх любого варианта брони (DOC-01 таблица 4.4).",
+  "components": [
+    { "type": "Modifier",
+      "modifiers": [ { "value": 2, "source": "Item", "source_id": "Item_Shield", "stacks": false } ] }
+  ]
+}

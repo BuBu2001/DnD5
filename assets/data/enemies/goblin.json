@@ -1,0 +1,17 @@
+{
+  "$schema": "schemas/enemy.schema.json",
+  "schema_version": 1,
+  "id": "Enemy_Goblin",
+  "name": "Гоблин",
+  "challenge_rating": 0.25,
+  "abilities": { "Str": 8, "Dex": 14, "Con": 10, "Int": 10, "Wis": 8, "Cha": 8 },
+  "ac": 15,
+  "hp": 7,
+  "speed_feet": 30,
+  "attacks": [
+    { "id": "Attack_Goblin_Scimitar", "name": "Скимитар", "attack_bonus": 4,
+      "damage": "1d6+2", "damage_type": "Slashing", "range_feet": 5 },
+    { "id": "Attack_Goblin_Shortbow", "name": "Короткий лук", "attack_bonus": 4,
+      "damage": "1d6+2", "damage_type": "Piercing", "range_feet": 80 }
+  ]
+}

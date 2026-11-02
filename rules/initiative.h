@@ -14,6 +14,8 @@ struct InitiativeEntry {
     int score = 0;        // бросок d20 + модификатор
     int dex_modifier = 0;
     std::uint64_t tie_breaker = 0; // 1) больший DEX mod; 2) меньший EntityId
+
+    friend bool operator==(const InitiativeEntry&, const InitiativeEntry&) = default;
 };
 
 class InitiativeQueue {
@@ -45,6 +47,11 @@ public:
     }
 
     std::size_t size() const { return entries_.size(); }
+
+    // Доступ по позиции в порядке ходов (для DTO и UI; порядок не меняется, FR-K61)
+    const InitiativeEntry& at(std::size_t index) const { return entries_[index]; }
+    std::size_t cursor() const { return cursor_; }
+    const std::vector<InitiativeEntry>& entries() const { return entries_; }
 
 private:
     std::vector<InitiativeEntry> entries_;

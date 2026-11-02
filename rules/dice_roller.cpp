@@ -1,5 +1,7 @@
 #include "rules/dice_roller.h"
 
+#include <cstdint>
+
 namespace rules {
 
 RollResult DiceRoller::roll(int target_dc, int modifier, bool has_advantage,
@@ -40,6 +42,40 @@ RollResult DiceRoller::roll(int target_dc, int modifier, bool has_advantage,
             RollComponent{modifier, "mod", "Модификатор", RollComponentType::AbilityMod});
     }
     return r;
+}
+
+int DiceRoller::roll_die(int sides) {
+    if (sides <= 1) return 1;
+    return static_cast<int>(rng_.next_u32() % static_cast<std::uint32_t>(sides)) + 1;
+}
+
+DamageRollResult DiceRoller::roll_damage(int dice_count, int dice_sides, int modifier,
+                                        bool critical, RollComponentType extra_type) {
+    DamageRollResult out;
+    out.critical = critical;
+    out.modifier = modifier;
+    out.notation = std::to_string(dice_count) + "d" + std::to_string(dice_sides);
+    if (modifier != 0) {
+        out.notation += (modifier > 0 ? "+" : "") + std::to_string(modifier);
+    }
+
+    // Критический успех удваивает КОСТИ урона, но не модификатор (DOC-01, 5e RAW)
+    const int rolls = critical ? dice_count * 2 : dice_count;
+    for (int i = 0; i < rolls; ++i) {
+        const int value = roll_die(dice_sides);
+        out.dice.push_back(value);
+        out.dice_total += value;
+        out.breakdown.push_back(RollComponent{value, "die.d" + std::to_string(dice_sides),
+                                              "d" + std::to_string(dice_sides),
+                                              RollComponentType::Die});
+    }
+    if (modifier != 0) {
+        out.breakdown.push_back(
+            RollComponent{modifier, "damage.modifier", "Модификатор урона", extra_type});
+    }
+    out.total = out.dice_total + modifier;
+    if (out.total < 0) out.total = 0; // урон не может быть отрицательным (DOC-01 FR-K42)
+    return out;
 }
 
 } // namespace rules

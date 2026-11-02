@@ -34,14 +34,18 @@ public:
         quads_.push_back(SpriteQuad{texture, src, dst, tint, rotation_deg, {}});
     }
 
-    // Один batch на смену текстуры: группировка соседних quad'ов одного atlas'а.
+    // Пакетирование по ключу «текстура → слой» (п. 4.1.3.2, E-D05): соседние
+    // quad'ы одной текстуры объединяются в один пакет, смена текстуры закрывает
+    // пакет. Пустых пакетов не создаётся (дефект первой версии V0.3).
     void end() {
-        TextureId current = kInvalidTexture;
+        batches_.clear();
+        if (quads_.empty()) return;
+        TextureId current = quads_.front().texture;
         std::size_t start = 0;
-        for (std::size_t i = 0; i <= quads_.size(); ++i) {
+        for (std::size_t i = 1; i <= quads_.size(); ++i) {
             const TextureId tex = (i < quads_.size()) ? quads_[i].texture : kInvalidTexture;
             if (tex != current) {
-                if (i > start) batches_.push_back({current, start, i});
+                batches_.push_back({current, start, i});
                 current = tex;
                 start = i;
             }

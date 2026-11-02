@@ -1,0 +1,30 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/save.schema.json",
+  "type": "object",
+  "required": ["$schema", "schema_version", "save_version", "seed", "scene"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "save_version": { "type": "integer", "minimum": 1 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "rng_state": { "type": "string" },
+    "scene": {
+      "type": "object",
+      "required": ["round"],
+      "properties": {
+        "round": { "type": "integer", "minimum": 1 },
+        "entities": { "type": "array" },
+        "initiative": { "type": "array" }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "master": { "type": "number", "minimum": 0, "maximum": 1 },
+        "music": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sfx": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

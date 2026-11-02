@@ -1,0 +1,10 @@
+{
+  "$schema": "schemas/item.schema.json",
+  "schema_version": 1,
+  "id": "Item_ChainShirt",
+  "name": "Кольчуга (рубаха)",
+  "description": "Средняя броня: AC = 13 + min(Mod(DEX), 2) (DOC-01 FR-K22, AC-K03).",
+  "components": [
+    { "type": "Armor", "armor_base_ac": 13, "armor_category": "Medium" }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "schemas/condition.schema.json",
+  "schema_version": 1,
+  "id": "ConditionTable_Core",
+  "comment": "Шесть обязательных состояний (DOC-01 FR-K50, таблица 4.9). Описание декларативное — флагами (DATA-K50, E-D08): проверки вида «if condition == Blinded» в боевом коде запрещены.",
+  "conditions": [
+    {
+      "id": "Condition_Restrained",
+      "name": "Опутан",
+      "icon_key": "icon_restrained",
+      "speed_override_feet": 0,
+      "flags": [
+        "SpeedZero",
+        "AttackDisadvantageBy",
+        "SavingThrowDisadvantageDex",
+        "AttackAdvantageAgainst"
+      ],
+      "description": "Скорость 0; помеха на броски атаки и спасброски Ловкости; атакующие бьют с преимуществом."
+    },
+    {
+      "id": "Condition_Blinded",
+      "name": "Ослеплён",
+      "icon_key": "icon_blinded",
+      "speed_override_feet": -1,
+      "flags": [
+        "AutoFailVisionChecks",
+        "AttackDisadvantageBy",
+        "AttackAdvantageAgainst"
+      ],
+      "description": "Автоматический провал проверок, требующих зрения; помеха на свои атаки; атакующие бьют с преимуществом."
+    },
+    {
+      "id": "Condition_Prone",
+      "name": "Лежит ничком",
+      "icon_key": "icon_prone",
+      "speed_override_feet": 0,
+      "flags": [
+        "SpeedZero",
+        "AttackDisadvantageBy",
+        "MeleeAttackAdvantage",
+        "RangedAttackDisadvantageAgainst",
+        "StandUpCostsHalfSpeed",
+        "CrawlCostsExtra"
+      ],
+      "description": "Скорость 0 (ползание — двойной расход); помеха на свои атаки; в ближнем бою по существу бьют с преимуществом, из дальней атаки — с помехой; подняться стоит половину скорости."
+    },
+    {
+      "id": "Condition_Grappled",
+      "name": "Схвачен",
+      "icon_key": "icon_grappled",
+      "speed_override_feet": 0,
+      "flags": [
+        "SpeedZero",
+        "EndsWhenGrapplerReleases"
+      ],
+      "description": "Скорость 0. Состояние спадает, если схвативший отпустил цель или оттолкнут."
+    },
+    {
+      "id": "Condition_Stunned",
+      "name": "Ошеломлён",
+      "icon_key": "icon_stunned",
+      "speed_override_feet": 0,
+      "flags": [
+        "SpeedZero",
+        "Incapacitated",
+        "CannotTakeReactions",
+        "AutomaticFailureStrDex",
+        "AttackAdvantageAgainst",
+        "CritOnMeleeHit"
+      ],
+      "description": "Скорость 0; автоматические провалы спасбросков Силы и Ловкости; не может действовать; атакующие бьют с преимуществом; любое попадание в ближнем бою — критический удар (авторское усиление, DOC-01 OQ-08)."
+    },
+    {
+      "id": "Condition_Invisible",
+      "name": "Невидим",
+      "icon_key": "icon_invisible",
+      "speed_override_feet": -1,
+      "flags": [
+        "GrantsAttackAdvantage",
+        "AttackDisadvantageBy",
+        "RequiresGuessedCell"
+      ],
+      "description": "Преимущество на свои атаки; атаки по существу совершаются с помехой; атакующий обязан указать клетку — при ошибке автоматический промах."
+    }
+  ]
+}

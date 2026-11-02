@@ -14,7 +14,8 @@
 #include "rules/grid.h"
 #include "rules/health.h"
 #include "rules/initiative.h"
-#include "rules/random_provider.h"
+#include "rules/damage.h"
+#include "rules/dto_convert.h"
 #include "scene/scene.h"
 
 namespace game {
@@ -37,6 +38,8 @@ struct AttackResolvedEvent {
     bool critical = false;
     int damage = 0;
     std::string description;
+    std::string damage_notation;                 // "1d8+2" — для журнала боя
+    rules::RollBreakdownDTO attack_breakdown;    // DTO для панели разбора (UI-E02, E-D12)
 };
 
 class CombatScene : public engine::scene::Scene {
@@ -45,6 +48,7 @@ public:
         std::string name;
         bool player_side = true;
         rules::HealthState health;
+        rules::DamageResistance resistance; // сопротивления/уязвимости/иммунитеты (FR-K41)
         int attack_mod = 0;
         int dex_mod = 0;
         int ac = 10;
@@ -105,13 +109,25 @@ public:
         const auto outcome = rules::resolve_attack(roller_, in, target.ac);
 
         int damage = 0;
+        rules::DamageRollResult damage_roll;
         if (outcome.hit) {
-            damage = roll_damage(outcome.critical);
+            damage_roll = roll_damage(outcome.critical, attacker.attack_mod / 2);
+            // Множители сопротивлений применяются ПОСЛЕ сложения (DOC-01 FR-K42)
+            damage = rules::apply_resistance(damage_roll.total, rules::DamageType::Slashing,
+                                             target.resistance);
             rules::apply_damage(target.health, damage);
         }
 
-        AttackResolvedEvent ev{attacker.name, target.name, outcome.hit,
-                               outcome.critical, damage, outcome.description};
+        // Событие несёт DTO и значения, а не ссылки на структуры правил (п. 4.1.11.6)
+        AttackResolvedEvent ev;
+        ev.attacker = attacker.name;
+        ev.target = target.name;
+        ev.hit = outcome.hit;
+        ev.critical = outcome.critical;
+        ev.damage = damage;
+        ev.description = outcome.description;
+        ev.damage_notation = damage_roll.notation;
+        ev.attack_breakdown = rules::to_dto(outcome.roll, "Атака: " + attacker.name);
         bus_.publish(ev);
         log_.push_back(ev.description);
         return ev;
@@ -134,19 +150,15 @@ private:
         initiative_.build(std::move(entries));
     }
 
-    // 1d8 урона; при критическом попадании кость удваивается (DOC-01)
-    int roll_damage(bool critical) {
-        const int dice = critical ? 2 : 1;
-        int total = 0;
-        for (int i = 0; i < dice; ++i) {
-            total += static_cast<int>(rng_.next_u32() % 8u) + 1;
-        }
-        return total;
+    // 1d8+модификатор урона через ЕДИНУЮ точку броска DiceRoller (FR-K102, AC-K22):
+    // прямой вызов генератора случайных чисел в боевом коде запрещён.
+    // При критическом попадании удваиваются кости, а не модификатор (DOC-01).
+    rules::DamageRollResult roll_damage(bool critical, int modifier) {
+        return roller_.roll_damage(/*dice_count=*/1, /*dice_sides=*/8, modifier, critical);
     }
 
     engine::core::EventBus& bus_;
     rules::DiceRoller& roller_;
-    rules::SeededRandomProvider rng_{1337};
     engine::ecs::CommandBuffer cmds_;
     rules::TacticalGrid grid_;
     engine::render::Camera2D camera_;

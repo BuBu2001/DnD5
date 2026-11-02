@@ -1,0 +1,39 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/condition.schema.json",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "conditions"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "conditions": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "flags"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "name": { "type": "string", "minLength": 1 },
+          "icon_key": { "type": "string" },
+          "description": { "type": "string" },
+          "speed_override_feet": { "type": "integer", "minimum": -1, "maximum": 60 },
+          "flags": {
+            "type": "array",
+            "items": { "type": "string",
+                       "enum": ["None", "SpeedZero", "CannotTakeReactions",
+                                "AttackAdvantageAgainst", "AttackDisadvantageBy",
+                                "SavingThrowDisadvantageDex", "SavingThrowDisadvantageStr",
+                                "AutomaticFailureStrDex", "Incapacitated", "AutoFailVisionChecks",
+                                "GrantsAttackAdvantage", "CritOnMeleeHit", "RequiresGuessedCell",
+                                "MeleeAttackDisadvantage", "RangedAttackDisadvantage",
+                                "MeleeAttackAdvantage", "RangedAttackDisadvantageAgainst",
+                                "StandUpCostsHalfSpeed", "CrawlCostsExtra",
+                                "EndsWhenGrapplerReleases"] }
+          }
+        }
+      }
+    }
+  }
+}

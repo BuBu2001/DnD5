@@ -9,10 +9,6 @@
 
 namespace engine::render {
 
-struct Vec2f {
-    float x = 0.f, y = 0.f;
-};
-
 class Camera2D {
 public:
     void set_position(float x, float y) { position_ = {x, y}; }

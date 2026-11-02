@@ -1,0 +1,13 @@
+{
+  "$schema": "schemas/character.schema.json",
+  "schema_version": 1,
+  "id": "Character_PlayerFighter",
+  "name": "Воин (игрок)",
+  "class_id": "Class_Fighter",
+  "level": 1,
+  "abilities": { "Str": 16, "Dex": 12, "Con": 14, "Int": 10, "Wis": 11, "Cha": 9 },
+  "hp_max": 12,
+  "speed_feet": 30,
+  "equipment": ["Item_Longsword", "Item_ChainShirt", "Item_Shield"],
+  "features": ["Feature_FightingStyle"]
+}

@@ -1,0 +1,44 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/item.schema.json",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "name", "components"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/item_component" }
+    }
+  },
+  "definitions": {
+    "damage_type": {
+      "type": "string",
+      "enum": ["Bludgeoning", "Piercing", "Slashing", "Fire", "Cold", "Lightning", "Acid",
+               "Poison", "Necrotic", "Radiant", "Force", "Psychic", "Thunder"]
+    },
+    "item_component": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string",
+                  "enum": ["Weapon", "OnHitEffect", "AttunementRequired", "Armor", "Modifier"] },
+        "base_damage": { "type": "string" },
+        "damage_type": { "$ref": "#/definitions/damage_type" },
+        "effect": { "type": "string", "enum": ["AddDamage", "AddCondition"] },
+        "damage": { "type": "string" },
+        "condition_id": { "type": "string" },
+        "armor_base_ac": { "type": "integer", "minimum": 10, "maximum": 20 },
+        "armor_category": { "type": "string", "enum": ["None", "Light", "Medium", "Heavy"] },
+        "properties": { "type": "array",
+                        "items": { "type": "string",
+                                   "enum": ["None", "Finesse", "Light", "Heavy", "TwoHanded",
+                                            "Ranged", "Thrown", "Versatile", "Reach"] } }
+      }
+    }
+  }
+}

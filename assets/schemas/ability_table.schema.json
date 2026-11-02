@@ -1,0 +1,36 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/ability_table.schema.json",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "abilities"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "comment": { "type": "string" },
+    "abilities": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["code", "name"],
+        "properties": {
+          "code": { "type": "string", "enum": ["Str", "Dex", "Con", "Int", "Wis", "Cha"] },
+          "name": { "type": "string", "minLength": 1 },
+          "name_en": { "type": "string" },
+          "affects": { "type": "string" }
+        }
+      }
+    },
+    "player_start_range": { "type": "object",
+      "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } } },
+    "allowed_range": { "type": "object",
+      "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } } },
+    "modifier_table": { "type": "array",
+      "items": { "type": "object",
+                 "required": ["score", "modifier"],
+                 "properties": { "score": { "type": "integer" }, "modifier": { "type": "integer" } } } },
+    "feet_per_cell": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "standard_speed_feet": { "type": "integer", "minimum": 0, "maximum": 120 }
+  }
+}
