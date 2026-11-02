@@ -206,6 +206,7 @@ tests/CMakeFiles/tests.dir/main.cpp.o
  /workspace/engine/core/event_bus.h
  /usr/include/c++/12/typeindex
  /workspace/engine/core/file_system.h
+ /workspace/engine/ecs/command_buffer.h
  /workspace/engine/ecs/registry.h
  /usr/include/c++/12/memory
  /usr/include/c++/12/bits/stl_raw_storage_iter.h
@@ -297,17 +298,25 @@ tests/CMakeFiles/tests.dir/main.cpp.o
  /workspace/engine/ecs/system.h
  /workspace/engine/ecs/view.h
  /workspace/engine/platform/main_loop.h
+ /workspace/engine/render/camera.h
+ /workspace/engine/render/renderer.h
+ /workspace/engine/render/null_renderer.h
+ /workspace/engine/render/sprite_batch.h
  /workspace/rules/abilities.h
+ /workspace/rules/attack.h
+ /workspace/rules/dice_roller.h
+ /workspace/rules/random_provider.h
+ /workspace/rules/grid.h
  /usr/include/c++/12/algorithm
  /usr/include/c++/12/bits/ranges_algo.h
  /usr/include/c++/12/bits/ranges_util.h
  /usr/include/c++/12/pstl/glue_algorithm_defs.h
- /workspace/rules/dice_roller.h
- /workspace/rules/random_provider.h
  /workspace/rules/formulas.h
  /workspace/rules/health.h
  /workspace/rules/initiative.h
  /workspace/rules/turn_state_machine.h
  /workspace/rules/action_economy.h
  /workspace/engine/scene/state_machine.h
+ /workspace/game/combat/combat_scene.h
+ /workspace/engine/scene/scene.h
 

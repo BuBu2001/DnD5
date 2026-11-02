@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/workspace/engine -I/workspace/rules/..
+CXX_INCLUDES = -I/workspace/game/combat -I/workspace/engine -I/workspace/rules/..
 
 CXX_FLAGS = -g -Wall -Wextra -Werror -std=c++20
 

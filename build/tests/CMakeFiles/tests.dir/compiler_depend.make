@@ -205,6 +205,7 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
   /workspace/engine/core/event_bus.h \
   /usr/include/c++/12/typeindex \
   /workspace/engine/core/file_system.h \
+  /workspace/engine/ecs/command_buffer.h \
   /workspace/engine/ecs/registry.h \
   /usr/include/c++/12/memory \
   /usr/include/c++/12/bits/stl_raw_storage_iter.h \
@@ -296,20 +297,30 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
   /workspace/engine/ecs/system.h \
   /workspace/engine/ecs/view.h \
   /workspace/engine/platform/main_loop.h \
+  /workspace/engine/render/camera.h \
+  /workspace/engine/render/renderer.h \
+  /workspace/engine/render/null_renderer.h \
+  /workspace/engine/render/sprite_batch.h \
   /workspace/rules/abilities.h \
+  /workspace/rules/attack.h \
+  /workspace/rules/dice_roller.h \
+  /workspace/rules/random_provider.h \
+  /workspace/rules/grid.h \
   /usr/include/c++/12/algorithm \
   /usr/include/c++/12/bits/ranges_algo.h \
   /usr/include/c++/12/bits/ranges_util.h \
   /usr/include/c++/12/pstl/glue_algorithm_defs.h \
-  /workspace/rules/dice_roller.h \
-  /workspace/rules/random_provider.h \
   /workspace/rules/formulas.h \
   /workspace/rules/health.h \
   /workspace/rules/initiative.h \
   /workspace/rules/turn_state_machine.h \
   /workspace/rules/action_economy.h \
-  /workspace/engine/scene/state_machine.h
+  /workspace/engine/scene/state_machine.h \
+  /workspace/game/combat/combat_scene.h \
+  /workspace/engine/scene/scene.h
 
+
+/workspace/game/combat/combat_scene.h:
 
 /workspace/engine/scene/state_machine.h:
 
@@ -317,15 +328,23 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
 
 /workspace/rules/initiative.h:
 
-/workspace/rules/health.h:
-
 /usr/include/c++/12/bits/ranges_util.h:
 
 /usr/include/c++/12/bits/ranges_algo.h:
 
 /usr/include/c++/12/algorithm:
 
+/workspace/rules/grid.h:
+
+/workspace/rules/attack.h:
+
 /workspace/rules/abilities.h:
+
+/workspace/engine/render/null_renderer.h:
+
+/workspace/engine/render/renderer.h:
+
+/workspace/engine/render/camera.h:
 
 /workspace/engine/ecs/view.h:
 
@@ -384,6 +403,8 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
 /usr/lib/gcc/x86_64-linux-gnu/12/include/syslimits.h:
 
 /usr/include/c++/12/climits:
+
+/usr/include/c++/12/bits/atomic_wait.h:
 
 /usr/include/c++/12/unordered_map:
 
@@ -483,8 +504,6 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/types/wint_t.h:
 
-/usr/include/c++/12/bits/atomic_wait.h:
-
 /usr/include/x86_64-linux-gnu/bits/iscanonical.h:
 
 /usr/include/x86_64-linux-gnu/bits/floatn.h:
@@ -569,6 +588,8 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
 
 /usr/include/c++/12/typeindex:
 
+/workspace/engine/scene/scene.h:
+
 /usr/include/x86_64-linux-gnu/c++/12/bits/gthr.h:
 
 /usr/include/x86_64-linux-gnu/c++/12/bits/c++config.h:
@@ -626,6 +647,8 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
 /usr/include/c++/12/debug/debug.h:
 
 /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
+
+/workspace/engine/render/sprite_batch.h:
 
 /usr/include/c++/12/bits/stl_pair.h:
 
@@ -806,6 +829,10 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
 /usr/include/c++/12/iosfwd:
 
 /usr/include/ctype.h:
+
+/workspace/rules/health.h:
+
+/workspace/engine/ecs/command_buffer.h:
 
 /usr/include/c++/12/bits/cxxabi_forced.h:
 

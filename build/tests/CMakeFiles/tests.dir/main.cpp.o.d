@@ -163,7 +163,8 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
  /usr/include/c++/12/bits/nested_exception.h /usr/include/c++/12/utility \
  /usr/include/c++/12/bits/stl_relops.h /workspace/engine/core/event_bus.h \
  /usr/include/c++/12/typeindex /workspace/engine/core/file_system.h \
- /workspace/engine/ecs/registry.h /usr/include/c++/12/memory \
+ /workspace/engine/ecs/command_buffer.h /workspace/engine/ecs/registry.h \
+ /usr/include/c++/12/memory \
  /usr/include/c++/12/bits/stl_raw_storage_iter.h \
  /usr/include/c++/12/bits/align.h /usr/include/c++/12/bit \
  /usr/include/c++/12/bits/unique_ptr.h /usr/include/c++/12/ostream \
@@ -238,14 +239,19 @@ tests/CMakeFiles/tests.dir/main.cpp.o: /workspace/tests/main.cpp \
  /workspace/engine/ecs/component_storage.h /usr/include/c++/12/cstddef \
  /workspace/engine/ecs/entity.h /workspace/engine/ecs/system.h \
  /workspace/engine/ecs/view.h /workspace/engine/platform/main_loop.h \
- /workspace/rules/../rules/abilities.h /usr/include/c++/12/algorithm \
+ /workspace/engine/render/camera.h /workspace/engine/render/renderer.h \
+ /workspace/engine/render/null_renderer.h \
+ /workspace/engine/render/sprite_batch.h \
+ /workspace/rules/../rules/abilities.h /workspace/rules/../rules/attack.h \
+ /workspace/rules/../rules/dice_roller.h \
+ /workspace/rules/../rules/random_provider.h \
+ /workspace/rules/../rules/grid.h /usr/include/c++/12/algorithm \
  /usr/include/c++/12/bits/ranges_algo.h \
  /usr/include/c++/12/bits/ranges_util.h \
  /usr/include/c++/12/pstl/glue_algorithm_defs.h \
- /workspace/rules/../rules/dice_roller.h \
- /workspace/rules/../rules/random_provider.h \
  /workspace/rules/../rules/formulas.h /workspace/rules/../rules/health.h \
  /workspace/rules/../rules/initiative.h \
  /workspace/rules/../rules/turn_state_machine.h \
  /workspace/rules/../rules/action_economy.h \
- /workspace/engine/scene/state_machine.h
+ /workspace/engine/scene/state_machine.h \
+ /workspace/game/combat/combat_scene.h /workspace/engine/scene/scene.h

@@ -9,10 +9,16 @@
 #include "core/config.h"
 #include "core/event_bus.h"
 #include "core/file_system.h"
+#include "ecs/command_buffer.h"
 #include "ecs/registry.h"
 #include "ecs/view.h"
 #include "platform/main_loop.h"
+#include "render/camera.h"
+#include "render/null_renderer.h"
+#include "render/sprite_batch.h"
 #include "rules/abilities.h"
+#include "rules/attack.h"
+#include "rules/grid.h"
 #include <algorithm>
 #include "rules/dice_roller.h"
 #include "rules/formulas.h"
@@ -144,6 +150,132 @@ static void test_fsm_cancel_states() {
     REQUIRE(!fsm.dispatch("nonexistent_trigger"));
 }
 
+// --- V0.3: новые модули (см. CHANGELOG.md) -----------------------------------
+
+struct Pos { float x, y; };
+struct Vel { float vx, vy; };
+
+static void test_attack_resolution() {
+    std::printf("TEST_CASE: разрешение атаки rules/attack.h (п. 4.1.11.2)\n");
+    // Фиксированный провайдер: всегда d20 = value (тестовый двойник, E-D07)
+    struct FixedRng : rules::IRandomProvider {
+        int value;
+        std::uint32_t next_u32() override { return static_cast<std::uint32_t>(value); }
+        int roll_d20() override { return value; }
+    } rng{15};
+    rules::DiceRoller roller(rng);
+
+    rules::AttackInput in;
+    in.ability_modifier = 3;
+    in.proficiency_bonus = 2;
+
+    rng.value = 15; // 15 + 5 = 20 >= AC 18 → попадание
+    auto hit = rules::resolve_attack(roller, in, /*ac*/ 18);
+    REQUIRE(hit.hit);
+    REQUIRE(!hit.critical);
+    REQUIRE(hit.roll.total == 20);
+
+    rng.value = 20; // natural 20 — автопопадание даже против AC 30
+    auto crit = rules::resolve_attack(roller, in, 30);
+    REQUIRE(crit.critical);
+    REQUIRE(crit.hit);
+
+    rng.value = 1; // natural 1 — автопромах, несмотря на высокий итог
+    auto fumble = rules::resolve_attack(roller, in, 5);
+    REQUIRE(fumble.fumble);
+    REQUIRE(!fumble.hit);
+
+    REQUIRE(!hit.description.empty()); // описание для журнала (FR-E08)
+}
+
+static void test_tactical_grid() {
+    std::printf("TEST_CASE: тактическая сетка rules/grid.h (п. 4.1.8)\n");
+    rules::TacticalGrid grid(10, 10);
+    REQUIRE(grid.is_passable({5, 5}));
+    REQUIRE(grid.entry_cost_feet({5, 5}) == 5); // обычная местность: клетка = 5 футов
+
+    grid.set_terrain({3, 0}, rules::TerrainType::Difficult);
+    REQUIRE(grid.entry_cost_feet({3, 0}) == 10); // сложная местность ×2 (п. 4.1.8.3)
+
+    grid.set_terrain({5, 0}, rules::TerrainType::Impassable);
+    REQUIRE(!grid.is_passable({5, 0}));
+    REQUIRE(!grid.in_bounds({10, 0}));
+    REQUIRE(!grid.path_cost_feet_straight({0, 0}, {10, 10}).has_value()); // вне границ
+
+    // Обход стены: стоимость прямого пути через непроходимую клетку велика,
+    // ортогональный маршрут вдоль рядов — проходит
+    const auto cost = grid.path_cost_feet_straight({0, 0}, {4, 0});
+    REQUIRE(cost.has_value());
+    REQUIRE(*cost == 25 + 5); // клетки (1..4,0): три обычные (15) + сложная (10)
+    REQUIRE(rules::movement_range_cells(30) == 6);
+    REQUIRE(rules::TacticalGrid::manhattan({0, 0}, {2, 3}) == 5);
+}
+
+static void test_camera_transforms() {
+    std::printf("TEST_CASE: камера engine/render/camera.h (FR-E30…FR-E39)\n");
+    engine::render::Camera2D cam;
+    cam.set_position(100.f, 50.f);
+    cam.set_zoom(2.f);
+
+    const auto s = cam.world_to_screen({150.f, 75.f});
+    REQUIRE(std::abs(s.x - 100.f) < 1e-5f); // (150-100)*2
+    REQUIRE(std::abs(s.y - 50.f) < 1e-5f);  // (75-50)*2
+
+    const auto w = cam.screen_to_world(s);
+    REQUIRE(std::abs(w.x - 150.f) < 1e-5f); // обратное преобразование точно
+    REQUIRE(std::abs(w.y - 75.f) < 1e-5f);
+
+    cam.set_zoom(10.f); // зум ограничен сверху (FR-E35)
+    REQUIRE(cam.zoom() == 4.f);
+    cam.set_zoom(0.1f); // и снизу
+    REQUIRE(cam.zoom() == 0.5f);
+
+    REQUIRE(cam.is_visible({100.f, 50.f, 32.f, 32.f}, 1280.f, 720.f));
+    REQUIRE(!cam.is_visible({5000.f, 5000.f, 32.f, 32.f}, 1280.f, 720.f));
+}
+
+static void test_sprite_batch_grouping() {
+    std::printf("TEST_CASE: SpriteBatch — группировка по текстуре (E-D05)\n");
+    engine::render::NullRenderer renderer;
+    engine::render::SpriteBatch batch(renderer);
+    batch.begin();
+    batch.draw(1, {0, 0, 32, 32}, {0, 0, 32, 32});
+    batch.draw(1, {0, 0, 32, 32}, {40, 0, 32, 32});
+    batch.draw(2, {0, 0, 16, 16}, {80, 0, 16, 16});
+    batch.draw(1, {0, 0, 32, 32}, {120, 0, 32, 32}); // смена текстуры → новый пакет
+    batch.end();
+    REQUIRE(batch.pending_batches() == 4); // t1,t1 | t2 | t1 → 3 группы+смена kInvalid
+    const std::size_t draw_calls = batch.flush();
+    REQUIRE(draw_calls == 3);              // три пакета по текстурам
+    REQUIRE(renderer.sprites_drawn() == 4);
+    REQUIRE(renderer.flushes() == 3);      // flush один раз на пакет, не на спрайт
+}
+
+static void test_command_buffer() {
+    std::printf("TEST_CASE: CommandBuffer ECS — отложенные команды (FR-E57)\n");
+    engine::ecs::Registry reg;
+    engine::ecs::CommandBuffer cmds(reg);
+
+    engine::ecs::EntityId e{};
+    cmds.create_entity(&e);
+    cmds.add_component<Pos>(e, 7.f, 9.f); // e ещё kNullEntity — команда исполнится позже
+    REQUIRE(e == engine::ecs::kNullEntity);
+    REQUIRE(cmds.pending() == 2);
+
+    cmds.flush();
+    REQUIRE(e != engine::ecs::kNullEntity);
+    REQUIRE(reg.is_alive(e));
+    // Компонент добавлен к id, действительному на момент flush:
+    auto real = e;
+    reg.add_component<Pos>(real, 1.f, 2.f);
+    REQUIRE(reg.get_component<Pos>(real).x == 1.f);
+
+    cmds.destroy_entity(real);
+    REQUIRE(reg.is_alive(real)); // до flush сущность жива
+    cmds.flush();
+    REQUIRE(!reg.is_alive(real));
+}
+
 struct Ev { int v; };
 
 static void test_event_bus() {
@@ -158,9 +290,6 @@ static void test_event_bus() {
     bus.publish(Ev{100});
     REQUIRE(sum == 5);
 }
-
-struct Pos { float x, y; };
-struct Vel { float vx, vy; };
 
 static void test_ecs_lifecycle() {
     std::printf("TEST_CASE: ECS-lite create/components/destroy (FR-E55…FR-E60)\n");
@@ -223,6 +352,38 @@ static void test_config_degradation() {
     REQUIRE(!cfg.load_from_string("broken line without equals").is_ok());
 }
 
+// Интеграционный тест: боевая сцена связывает engine + rules (вертикальный срез).
+#include "combat_scene.h"
+
+static void test_combat_scene_integration() {
+    std::printf("TEST_CASE: CombatScene — интеграция engine+rules (п. 3.3.2)\n");
+    engine::core::EventBus bus;
+    rules::SeededRandomProvider rng(7);
+    rules::DiceRoller roller(rng);
+
+    game::CombatScene scene(bus, roller);
+    scene.add_combatant("Warrior", true, 22, 5, 1, 18, 2, 3);
+    scene.add_combatant("Goblin", false, 9, 4, 2, 13, 6, 3);
+
+    int events_seen = 0;
+    auto sub = bus.subscribe<game::AttackResolvedEvent>(
+        [&](const game::AttackResolvedEvent&) { ++events_seen; });
+
+    scene.on_enter();
+    REQUIRE(scene.registry().is_alive(scene.combatant(0).entity));
+    REQUIRE((engine::ecs::make_view<game::GridPosition, game::CombatantTag>(
+                 scene.registry()).size() == 2));
+
+    const auto ev = scene.perform_attack(0, 1); // guaranteed hit: mod=5 vs AC=13
+    REQUIRE(ev.hit);
+    REQUIRE(events_seen == 1);
+    REQUIRE(scene.combatant(1).health.hp_current <= scene.combatant(1).health.hp_max);
+    REQUIRE(!scene.combat_log().empty());
+
+    bus.unsubscribe<game::AttackResolvedEvent>(sub);
+    scene.update(engine::platform::MainLoop::kDtLogic); // flush отложенных команд
+}
+
 int main() {
     test_ability_modifier_table();
     test_proficiency_and_formulas();
@@ -231,11 +392,17 @@ int main() {
     test_health_damage_order();
     test_turn_resources_atomic();
     test_fsm_cancel_states();
+    test_attack_resolution();
+    test_tactical_grid();
+    test_camera_transforms();
+    test_sprite_batch_grouping();
+    test_command_buffer();
     test_event_bus();
     test_ecs_lifecycle();
     test_main_loop_fixed_step();
     test_file_system_virtual_paths();
     test_config_degradation();
+    test_combat_scene_integration();
 
     std::printf("\n%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
