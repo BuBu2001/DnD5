@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -32,6 +34,7 @@ namespace {
 using engine::core::FileSystem;
 using engine::resource::JsonLoader;
 using engine::resource::JsonParser;
+using engine::resource::JsonValue;
 using engine::resource::SchemaRegistry;
 using engine::resource::SchemaValidator;
 
@@ -99,9 +102,15 @@ bool parse_args(int argc, char** argv, Options& out) {
     return true;
 }
 
+bool is_physical(const std::string& path) {
+    return !path.empty() && (path.front() == '/' || path.front() == '.' ||
+                             (path.size() > 1 && path[1] == ':'));
+}
+
 // Приведение пути к виртуальному виду assets:/… (DATA-E05: ОС-пути в данных запрещены)
 std::string to_virtual(const std::string& path) {
     if (path.rfind("assets:/", 0) == 0) return path;
+    if (is_physical(path)) return path;   // файл вне корня ассетов (например, в CI)
     std::string p = path;
     while (!p.empty() && p.front() == '/') p.erase(p.begin());
     if (p.rfind("assets/", 0) == 0) p = p.substr(std::string("assets/").size());
@@ -110,6 +119,24 @@ std::string to_virtual(const std::string& path) {
 
 bool ends_with_json(const std::string& path) {
     return path.size() >= 5 && path.compare(path.size() - 5, 5, ".json") == 0;
+}
+
+// Чтение документа: assets:/… — через FileSystem (DATA-E05), физический путь — напрямую
+std::string read_any(const FileSystem& fs, const std::string& path, std::string& error) {
+    if (!is_physical(path)) {
+        const auto text = fs.read_text(path);
+        if (!text.is_ok()) {
+            error = text.error_message();
+            return {};
+        }
+        return text.value();
+    }
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        error = "файл не найден: " + path;
+        return {};
+    }
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 }
 
 // Рекурсивный обход каталога: *.json в алфавитном порядке (детерминизм, NFR-E09)
@@ -188,12 +215,13 @@ int main(int argc, char** argv) {
     for (const auto& path : targets) {
         const bool is_schema = path.find("/schemas/") != std::string::npos;
 
-        const auto text = fs.read_text(path);
-        if (!text.is_ok()) {
-            report_fail(path, text.error_message());
+        std::string read_error;
+        const std::string text = read_any(fs, path, read_error);
+        if (text.empty() && !read_error.empty()) {
+            report_fail(path, read_error);
             continue;
         }
-        const auto parsed = JsonParser::parse(text.value());
+        const auto parsed = JsonParser::parse(text);
         if (!parsed.is_ok()) {
             report_fail(path, parsed.error_message());
             continue;
@@ -226,6 +254,33 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        if (is_physical(path)) {
+            // Физический путь: обёртка + схема проверяются напрямую (загрузчик работает
+            // только с виртуальными путями assets:/…, DATA-E05)
+            const JsonValue& value = parsed.value();
+            const auto envelope = validator.validate_envelope(value, options.expected_schema_version);
+            if (!envelope.ok()) {
+                report_fail(path, envelope.format(path));
+                continue;
+            }
+            const std::string schema_id = value.at("$schema").as_string();
+            if (!validator.has_schema(schema_id)) {
+                report_fail(path, "схема не найдена: " + schema_id);
+                continue;
+            }
+            const auto result = validator.validate(schema_id, value);
+            if (!result.ok()) {
+                report_fail(path, result.format(path));
+                continue;
+            }
+            ++ok_count;
+            if (options.verbose) {
+                std::printf("[ ok ] %s (id=%s, schema_version=%d)\n", path.c_str(),
+                            value.at("id").as_string().c_str(),
+                            static_cast<int>(value.at("schema_version").as_int(0)));
+            }
+            continue;
+        }
         const auto loaded = loader.load_uncached(path);
         if (!loaded.is_ok()) {
             report_fail(path, loaded.error_message());

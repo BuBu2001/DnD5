@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 #include <string>
@@ -87,8 +89,14 @@ bool parse_args(int argc, char** argv, Options& out) {
     return true;
 }
 
+bool is_physical(const std::string& path) {
+    return !path.empty() && (path.front() == '/' || path.front() == '.' ||
+                             (path.size() > 1 && path[1] == ':'));
+}
+
 std::string to_virtual(const std::string& path) {
     if (path.rfind("assets:/", 0) == 0) return path;
+    if (is_physical(path)) return path;   // файл вне корня ассетов (например, в CI)
     std::string p = path;
     while (!p.empty() && p.front() == '/') p.erase(p.begin());
     if (p.rfind("assets/", 0) == 0) p = p.substr(std::string("assets/").size());
@@ -97,6 +105,26 @@ std::string to_virtual(const std::string& path) {
 
 bool ends_with_json(const std::string& p) {
     return p.size() >= 5 && p.compare(p.size() - 5, 5, ".json") == 0;
+}
+
+// Чтение документа: виртуальный путь assets:/… — через FileSystem (DATA-E05),
+// физический путь — напрямую (проверка файла вне корня ассетов, например в CI)
+std::string read_any(const FileSystem& fs, const std::string& path, std::string& error) {
+    if (!is_physical(path)) {
+        const auto text = fs.read_text(path);
+        if (!text.is_ok()) {
+            error = text.error_message();
+            return {};
+        }
+        return text.value();
+    }
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        error = "файл не найден: " + path;
+        return {};
+    }
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return text;
 }
 
 // Декодирование UTF-8 в кодовые точки: ключ плитки — один символ, но в UTF-8
@@ -343,11 +371,40 @@ int main(int argc, char** argv) {
 
     for (const auto& path : targets) {
         Report report;
-        const auto loaded = loader.load_uncached(path);
-        if (!loaded.is_ok()) {
-            report.error(loaded.error_message());
+        std::string document_id;
+        if (is_physical(path)) {
+            // Физический путь: разбор + проверка обёртки и схемы без загрузчика ресурсов
+            std::string read_error;
+            const std::string text = read_any(fs, path, read_error);
+            if (text.empty() && !read_error.empty()) {
+                report.error(read_error);
+            } else {
+                const auto parsed = JsonParser::parse(text);
+                if (!parsed.is_ok()) {
+                    report.error(parsed.error_message());
+                } else {
+                    const JsonValue& value = parsed.value();
+                    document_id = value.at("id").as_string();
+                    const auto envelope = validator.validate_envelope(value, /*expected=*/1);
+                    if (!envelope.ok()) report.error(envelope.format(path));
+                    const std::string schema_id = value.at("$schema").as_string();
+                    if (validator.has_schema(schema_id)) {
+                        const auto result = validator.validate(schema_id, value);
+                        if (!result.ok()) report.error(result.format(path));
+                    } else {
+                        report.error("схема не найдена: " + schema_id);
+                    }
+                    if (report.errors.empty()) validate_map(value, fs, report);
+                }
+            }
         } else {
-            validate_map(loaded.value().value, fs, report);
+            const auto loaded = loader.load_uncached(path);
+            if (!loaded.is_ok()) {
+                report.error(loaded.error_message());
+            } else {
+                document_id = loaded.value().id;
+                validate_map(loaded.value().value, fs, report);
+            }
         }
 
         if (!report.warnings.empty()) {
@@ -365,7 +422,7 @@ int main(int argc, char** argv) {
             ++ok_count;
             if (options.verbose) {
                 std::printf("[ ok ] %s (id=%s)\n", path.c_str(),
-                            loaded.is_ok() ? loaded.value().id.c_str() : "?");
+                            document_id.empty() ? "?" : document_id.c_str());
             }
         }
     }
