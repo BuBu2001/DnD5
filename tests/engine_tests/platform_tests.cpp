@@ -183,6 +183,153 @@ TEST_CASE("input_to_ui_adapter_translation", "[engine][FR-E03][FR-E80][FR-E84]")
     }
 }
 
+// --- FR-E02: поля letterbox/pillarbox не перекрывают содержимое сцены --------
+namespace {
+
+// Зонд: фиксирует прямоугольники, которые UI-дерево отправляет в рендерер.
+// Используется для проверки регрессии дефекта V0.4 (чёрный прямоугольник на всё
+// окно поверх сцены) — headless, без GL.
+class RectProbeRenderer final : public render::IRenderer {
+public:
+    void draw_sprite(render::TextureId, const render::Rect&, const render::Rect&,
+                     const render::Color&) override {}
+    void draw_rect(const render::Rect& rect, const render::Color& color) override {
+        rects_.push_back(rect);
+        colors_.push_back(color);
+    }
+    void draw_rect_outline(const render::Rect&, const render::Color&, float) override {}
+    void draw_line(render::Vec2f, render::Vec2f, const render::Color&, float) override {}
+    void draw_circle(render::Vec2f, float, const render::Color&) override {}
+    void draw_text(float, float, const std::string&, float, const render::Color&) override {}
+    void flush() override {}
+
+    const std::vector<render::Rect>& rects() const { return rects_; }
+    const std::vector<render::Color>& colors() const { return colors_; }
+    void reset() {
+        rects_.clear();
+        colors_.clear();
+    }
+
+private:
+    std::vector<render::Rect> rects_;
+    std::vector<render::Color> colors_;
+};
+
+} // namespace
+
+TEST_CASE("ui_letterbox_does_not_cover_scene", "[engine][FR-E02][FR-E84]") {
+    RectProbeRenderer probe;
+
+    SECTION("Окно 1280×720: полей нет — фон не рисуется вовсе") {
+        ui::UiRoot root;
+        root.resize(1280, 720);
+        probe.reset();
+        root.draw_letterbox(probe);
+        REQUIRE(probe.rects().empty());
+    }
+
+    SECTION("Окно 1920×1080 (S = 1,5): полей нет — содержимое не перекрывается") {
+        ui::UiRoot root;
+        root.resize(1920, 1080);
+        probe.reset();
+        root.draw_letterbox(probe);
+        REQUIRE(probe.rects().empty());
+    }
+
+    SECTION("Окно 2560×720: pillarbox — два боковых поля, центр свободен") {
+        ui::UiRoot root;
+        root.resize(2560, 720);
+        probe.reset();
+        root.draw_letterbox(probe);
+        REQUIRE(probe.rects().size() == 2u);
+        // Логическая область всегда центрирована, поэтому ни одно поле не может
+        // содержать центр окна — содержимое сцены не перекрывается (регрессия V0.4).
+        const float center_x = 2560.f * 0.5f;
+        const float center_y = 720.f * 0.5f;
+        for (const auto& r : probe.rects()) {
+            const bool contains_center = center_x >= r.x && center_x <= r.x + r.w &&
+                                         center_y >= r.y && center_y <= r.y + r.h;
+            REQUIRE_FALSE(contains_center);
+            REQUIRE(r.w > 0.f);
+            REQUIRE(r.h > 0.f);
+        }
+        // Суммарная ширина полей = 2560 − 1280 (S = 1)
+        const float total = probe.rects()[0].w + probe.rects()[1].w;
+        REQUIRE(approx_equal(total, 1280.f, 1e-3));
+    }
+
+    SECTION("Окно 1280×1080: letterbox — два поля сверху и снизу") {
+        ui::UiRoot root;
+        root.resize(1280, 1080);
+        probe.reset();
+        root.draw_letterbox(probe);
+        REQUIRE(probe.rects().size() == 2u);
+        const auto& top = probe.rects()[0];
+        const auto& bottom = probe.rects()[1];
+        REQUIRE(approx_equal(top.y, 0.f, 1e-3));
+        REQUIRE(approx_equal(top.h, 180.f, 1e-3));
+        REQUIRE(approx_equal(bottom.y, 900.f, 1e-3));   // 180 + 720
+        REQUIRE(approx_equal(bottom.h, 180.f, 1e-3));
+    }
+
+    SECTION("Полный draw() не закрашивает всю логическую область") {
+        ui::UiRoot root;
+        root.resize(2560, 720);
+        probe.reset();
+        root.draw(probe);
+        // Дерево без виджетов рисует только поля: центр остаётся за сценой
+        for (const auto& r : probe.rects()) {
+            const bool full_window = r.x <= 0.f && r.y <= 0.f && r.w >= 2560.f && r.h >= 720.f;
+            REQUIRE_FALSE(full_window);
+        }
+    }
+}
+
+// --- FR-E29: метрики шрифта — базовая линия и выносные элементы --------------
+TEST_CASE("font_atlas_baseline_metrics", "[engine][FR-E29]") {
+    render::FontAtlas font;
+    REQUIRE(font.bake());
+
+    // Дизайн-сетка: Y от -3 (диакритика) до 10 (выносные элементы), прописные 0..8.
+    // Ячейка 16×32 px, базовый кегль (высота прописных) — 22 px.
+    constexpr float kDesignTop = -3.f;
+    constexpr float kDesignBottom = 10.f;
+    constexpr float kDesignCapHeight = 8.f;
+    const float px_per_unit = static_cast<float>(render::FontAtlas::kCellHeight) /
+                              (kDesignBottom - kDesignTop);
+    const float cap_top_px = (0.f - kDesignTop) * px_per_unit;
+    const float cap_bottom_px = (kDesignCapHeight - kDesignTop) * px_per_unit;
+    const float cap_px = cap_bottom_px - cap_top_px;
+    REQUIRE(approx_equal(cap_px, render::FontAtlas::kBaseCapHeight, 0.6f));
+
+    SECTION("Доля подъёма над базовой линией постоянна и не зависит от кегля") {
+        const float ascent_fraction = cap_top_px / static_cast<float>(render::FontAtlas::kCellHeight);
+        REQUIRE(ascent_fraction > 0.15f);
+        REQUIRE(ascent_fraction < 0.35f);
+        // Для кегля 20: смещение базовой линии ≈ 5 px — текст встанет на y + 15
+        const float size = 20.f;
+        const float cell_h = static_cast<float>(render::FontAtlas::kCellHeight) *
+                             (size / render::FontAtlas::kBaseCapHeight);
+        const float baseline_offset = ascent_fraction * cell_h;
+        // cap_top = 3/13 × 32 = 7,385 px → доля 0,2308; для кегля 20: 0,2308 × 32,5 = 7,5 px
+        REQUIRE(approx_equal(ascent_fraction, 3.f / 13.f, 1e-3));
+        REQUIRE(approx_equal(baseline_offset, 7.5f, 0.1f));
+        REQUIRE(approx_equal(size - baseline_offset, 12.5f, 0.1f));
+    }
+
+    SECTION("Шаг глифа: моноширинный, ~0,73 кегля") {
+        const auto* g = font.glyph('A');
+        REQUIRE(g != nullptr);
+        REQUIRE(approx_equal(g->advance, 16.f / render::FontAtlas::kBaseCapHeight, 1e-4));
+        // Кегль 19,6923 px = высота прописных в ячейке → ширина строки равна ширине атласа
+        const float cap_size = render::FontAtlas::kBaseCapHeight;
+        REQUIRE(approx_equal(font.text_width("AAAA", cap_size), 4.f * 16.f, 1e-2));
+        REQUIRE(approx_equal(g->advance, 16.f / cap_size, 1e-4));
+        REQUIRE(g->advance > 0.7f);
+        REQUIRE(g->advance < 0.9f);
+    }
+}
+
 // --- FR-E03: событие UI доходит до виджета через дерево ----------------------
 TEST_CASE("input_event_reaches_widget", "[engine][FR-E82][FR-E83]") {
     ui::UiRoot root;

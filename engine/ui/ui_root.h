@@ -73,13 +73,44 @@ public:
 
     void update(double dt_logic) { root_->update_all(dt_logic); }
 
-    // Отрисовка дерева: поля letterbox/pillarbox заполняются фоном (FR-E02)
+    // Отрисовка дерева: поля letterbox/pillarbox заполняются фоном (FR-E02).
+    // Закрашиваются ТОЛЬКО поля вне логической области 1280×720: содержимое сцены
+    // под ними не перекрывается (дефект V0.4 — чёрный прямоугольник поверх сцены).
     void draw(render::IRenderer& renderer) {
-        renderer.draw_rect(
-            render::Rect{0.f, 0.f, static_cast<float>(viewport_.window_w),
-                         static_cast<float>(viewport_.window_h)},
-            render::Color{0.f, 0.f, 0.f, 1.f});
+        draw_letterbox(renderer);
         root_->draw_all(renderer);
+    }
+
+    // Прямоугольники полей в тех же координатах, что использует рендер-бэкенд.
+    // Для бэкенда с логическим вьюпортом (OpenGL) поля имеют нулевую толщину и
+    // фактически не отрисовываются; для бэкенда в координатах окна (NullRenderer,
+    // тесты) они совпадают с физическими полями окна.
+    void draw_letterbox(render::IRenderer& renderer) const {
+        const float window_w = static_cast<float>(viewport_.window_w);
+        const float window_h = static_cast<float>(viewport_.window_h);
+        const float logical_w = static_cast<float>(kLogicalWidth);
+        const float logical_h = static_cast<float>(kLogicalHeight);
+        const render::Color background{0.f, 0.f, 0.f, 1.f};
+
+        const float content_w = std::min(window_w, logical_w);
+        const float content_h = std::min(window_h, logical_h);
+        const float bar_x = viewport_.offset_x;   // 0 для логического вьюпорта
+        const float bar_y = viewport_.offset_y;
+
+        // Верхнее и нижнее поля (letterbox)
+        if (bar_y > 0.f) {
+            renderer.draw_rect(render::Rect{0.f, 0.f, window_w, bar_y}, background);
+            renderer.draw_rect(render::Rect{0.f, bar_y + content_h, window_w,
+                                           window_h - (bar_y + content_h)},
+                               background);
+        }
+        // Левое и правое поля (pillarbox)
+        if (bar_x > 0.f) {
+            renderer.draw_rect(render::Rect{0.f, bar_y, bar_x, content_h}, background);
+            renderer.draw_rect(render::Rect{bar_x + content_w, bar_y,
+                                           window_w - (bar_x + content_w), content_h},
+                               background);
+        }
     }
 
     bool dispatch_event(UiEvent& event) { return root_->dispatch_event(event); }

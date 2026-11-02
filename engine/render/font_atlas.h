@@ -14,7 +14,7 @@ namespace engine::render {
 
 struct GlyphRect {
     float u0 = 0.f, v0 = 0.f, u1 = 0.f, v1 = 0.f; // координаты в атласе (0..1)
-    float advance = 0.f;                           // шаг в «единицах кегля» (0..1 от size)
+    float advance = 0.f;                           // шаг в долях кегля (× size = лог. px)
 };
 
 class FontAtlas {
@@ -23,8 +23,10 @@ public:
     static constexpr int kCellWidth = 16;
     static constexpr int kCellHeight = 32;
     static constexpr int kColumns = 16;
-    // Высота прописных знаков в пикселях ячейки: базовый кегль для масштабирования
-    static constexpr float kBaseCapHeight = 22.f;
+    // Высота прописных знаков в пикселях ячейки: базовый кегль для масштабирования.
+    // Дизайн-сетка: прописные занимают Y 0..8 из диапазона -3..10, то есть
+    // 8/13 высоты ячейки = 32 × 8/13 ≈ 19,69 px.
+    static constexpr float kBaseCapHeight = 19.6923f;
 
     FontAtlas() = default;
 

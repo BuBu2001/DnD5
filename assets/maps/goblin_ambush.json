@@ -1,0 +1,45 @@
+{
+  "$schema": "schemas/map.schema.json",
+  "schema_version": 1,
+  "id": "Map_GoblinAmbush",
+  "name": "Засада гоблинов",
+  "description": "Вертикальный срез (Приложение Д ТЗ DOC-04): комната 20×15 клеток, 2 героя и 2 гоблина. 1 клетка = 5 футов (DOC-01, DATA-E04).",
+  "tile_size_px": 32,
+  "grid": { "columns": 20, "rows": 15, "cell_feet": 5 },
+  "tiles": [
+    { "key": ".", "name": "Каменный пол", "passable": true, "difficult_terrain": false, "cover": "None", "texture_key": "floor_stone" },
+    { "key": "#", "name": "Стена", "passable": false, "difficult_terrain": false, "cover": "Full", "texture_key": "wall_stone" },
+    { "key": "~", "name": "Обломки", "passable": true, "difficult_terrain": true, "cover": "Half", "texture_key": "rubble" },
+    { "key": "=", "name": "Стол", "passable": false, "difficult_terrain": false, "cover": "Half", "texture_key": "table_wood" }
+  ],
+  "layers": [
+    {
+      "id": "terrain",
+      "kind": "terrain",
+      "visible": true,
+      "rows": [
+        "####################",
+        "#..................#",
+        "#..~~..............#",
+        "#..~~.....====.....#",
+        "#.........====.....#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#..........~~......#",
+        "#..........~~......#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "####################"
+      ]
+    }
+  ],
+  "spawns": [
+    { "entity_id": "Character_PlayerFighter", "column": 2, "row": 6, "facing": "East" },
+    { "entity_id": "Character_PlayerRogue", "column": 3, "row": 6, "facing": "East" },
+    { "entity_id": "Enemy_Goblin", "column": 16, "row": 5, "facing": "West" },
+    { "entity_id": "Enemy_Goblin", "column": 17, "row": 9, "facing": "West" }
+  ]
+}

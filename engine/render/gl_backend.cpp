@@ -594,9 +594,13 @@ bool GlRenderer::save_screenshot_bmp(const std::string& path) {
     put_u32(0u);
     put_u32(0u);
 
+    // glReadPixels возвращает строки снизу вверх (y = 0 — нижний край кадра),
+    // формат BMP с положительной высотой хранит их в том же порядке: строку кадра
+    // y = 0 записываем первой. Дополнительный переворот НЕ выполняется — иначе
+    // снимок оказывается перевёрнутым (дефект обнаружен CI-прогоном оконного режима).
     std::vector<std::uint8_t> row(static_cast<std::size_t>(row_stride), 0);
     for (int y = 0; y < h; ++y) {
-        const int src_y = h - 1 - y; // GL хранит изображение снизу вверх
+        const int src_y = y;
         std::fill(row.begin(), row.end(), static_cast<std::uint8_t>(0));
         for (int x = 0; x < w; ++x) {
             const std::size_t src = (static_cast<std::size_t>(src_y) * static_cast<std::size_t>(w) +
