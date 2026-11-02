@@ -1,27 +1,147 @@
-# Матрица трассировки (каркас, Приложение В ТЗ DOC-04)
+# Матрица трассировки (Приложение В ТЗ DOC-04)
 
-Формат: требование → модуль → символ кода → тест. Строки без соответствия блокируют закрытие этапа.
+Формат: требование → модуль → символ кода → проверка. Строка без проверки
+(тест, инструмент или замер) блокирует закрытие этапа.
 
-| Требование | Модуль | Символ | Тест |
-|------------|--------|--------|------|
-| FR-E08 (логирование) | engine/core/log | engine::core::Log | — (демо game/main.cpp) |
-| FR-E09 (конфигурация) | engine/core/config | engine::core::Config | test_config_degradation |
-| FR-E10 (шина событий) | engine/core/event_bus | engine::core::EventBus | test_event_bus |
-| FR-E07, DATA-E05 (assets:/) | engine/core/file_system | engine::core::FileSystem | test_file_system_virtual_paths |
-| п. 4.1.2.3–4 (главный цикл) | engine/platform/main_loop | engine::platform::MainLoop::tick | test_main_loop_fixed_step |
-| п. 4.1.2.2 ф-ла (1) (масштаб) | engine/platform/window | IWindow::compute_scale | — (M1) |
-| FR-E55…E60 (ECS-lite) | engine/ecs | Registry, ComponentStorage, make_view | test_ecs_lifecycle |
-| FR-E70…E79 (сцены/FSM) | engine/scene | SceneStack, StateMachine | test_fsm_cancel_states |
-| п. Г.2 (характеристики) | rules/abilities | ability_modifier, AbilityScores | test_ability_modifier_table |
-| п. Г.13 (формулы) | rules/formulas.h | proficiency_bonus и др. | test_proficiency_and_formulas |
-| п. 4.1.11.2 (DiceRoller) | rules/dice_roller | DiceRoller::roll | test_dice_roller_rules |
-| E-D07 (IRandomProvider) | rules/random_provider | SeededRandomProvider (xoshiro256**) | test_dice_roller_rules (детерминизм) |
-| п. 4.1.11.3 (tie-breaker) | rules/initiative | InitiativeQueue::build | test_initiative_tie_breaker |
-| п. 4.1.11.4 (порядок урона) | rules/health | apply_damage, heal | test_health_damage_order |
-| п. 4.1.7.3 (атомарность) | rules/turn_state_machine | spend, can_afford | test_turn_resources_atomic |
-| п. 4.1.11.5 (слои) | rules/modifier_stack | aggregate | — (M1) |
-| E-D02/E-D12 (DTO) | rules/dto.h | RollBreakdownDTO и др. | — (M8) |
-| NFR-E09 (детерминизм) | rules/* | seed-провайдер | test_dice_roller_rules |
+Обозначения целей испытаний:
+* `rules` — tests_rules (таблица 8.2 ТЗ DOC-04);
+* `engine` — tests_engine (таблица 8.3);
+* `platform` — tests_platform (слой платформы и отрисовки без окна и драйвера);
+* `integration` — tests_integration (сквозные испытания, вертикальный срез Приложения Д);
+* `golden` — tests_golden (подраздел 8.4, фиксированный seed 42);
+* `bench` — tests/benchmarks (таблица 8.4);
+* `tool` — вспомогательный инструмент tools/ (этап M11).
 
-Не закрыты (следующие этапы): FR-E20…E54 (render/resource/audio, M2–M3, M9),
-FR-E80…E95 (UI, M8), Save/Load (M10), отладочные инструменты (M6+).
+## 1. Ядро движка (engine/core)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E08 (журнал, уровни) | engine/core/log | `core::Log`, `LogLevel` | engine: `log_levels_and_format` |
+| FR-E09 (конфигурация, деградация) | engine/core/config | `core::Config::load_from_file` | engine: `config_load_and_degradation` |
+| FR-E10 (шина событий) | engine/core/event_bus | `core::EventBus::publish` | engine: `event_bus_delivers` |
+| FR-E07, DATA-E05 (виртуальные пути) | engine/core/file_system | `core::FileSystem::resolve` | engine: `virtual_path_resolve` |
+| NFR-E14 (отказ без аварии) | engine/core/result | `core::Result<T>` | engine: `config_load_and_degradation` |
+| FR-E100…E103 (отладочная панель) | engine/core/debug_overlay | `core::DebugOverlay`, `FrameStats` | engine: `debug_overlay_counters` |
+| NFR-E01 (бюджет 300 draw calls) | engine/core/debug_overlay | `kMaxDrawCallsPerFrame` | bench: оконный прогон `game --window` |
+
+## 2. Платформа (engine/platform)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E01 (окно, логическое 1280×720) | engine/platform/window | `WindowSettings`, `SdlWindow` | platform: `viewport_formula_1_scale_and_bars` |
+| FR-E02, формула (1) (масштаб, поля) | engine/platform/window | `Window::compute_viewport` | platform: `viewport_formula_1_scale_and_bars` |
+| FR-E03 (клавиатура, мышь, колесо) | engine/platform/input | `InputState`, `poll_sdl_events` | platform: `input_frame_cycle` |
+| FR-E03 → FR-E80 (адаптация ввода в UI) | engine/platform/input | `InputToUiAdapter::translate` | platform: `input_to_ui_adapter_translation`, `input_event_reaches_widget` |
+| FR-E04, FR-E05 (геймпад, сенсор) | — | — | статус V1 (п. 4.1.2.5), этап M11 |
+| FR-E06, формула (2) (фиксированный шаг) | engine/platform/main_loop | `MainLoop::tick` | engine: `fixed_loop_stable` |
+| п. 4.1.2.4 (dt_frame) | engine/platform/timer | `platform::Timer` | platform: `frame_timer_accumulates_dt` |
+
+## 3. Отрисовка (engine/render)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E20 (OpenGL 3.3 Core) | engine/render/gl_backend | `GlRenderer::init` | platform: `gl_function_loader_reports_missing`; оконный прогон |
+| FR-E20 (загрузка функций GL) | engine/render/gl_functions | `load_gl_functions` | platform: `gl_function_loader_reports_missing` |
+| FR-E21 (текстуры, атласы) | engine/render/gl_backend | `GlRenderer::create_texture_rgba` | tool: `asset_packer` (раскладка атласа) |
+| FR-E22, FR-E23 (спрайты, src/dst) | engine/render/renderer.h | `IRenderer::draw_sprite` | engine: `primitives_and_text_contract` |
+| FR-E25 (камера, отсечение) | engine/render/camera | `Camera2D` | engine: `camera_clamps` |
+| FR-E28 (примитивы) | engine/render/renderer.h | `draw_rect`, `draw_line`, `draw_circle` | engine: `primitives_and_text_contract` |
+| FR-E29 (текст) | engine/render/font_atlas | `FontAtlas::bake`, `draw_text` | platform: `font_atlas_bakes_glyphs`, `font_atlas_baseline_metrics` |
+| FR-E30, FR-E31 (тонирование, разворот) | engine/render/gl_backend | `draw_sprite_flipped` | оконный прогон (визуально) |
+| E-D05, NFR-E01 (пакетирование) | engine/render/sprite_batch | `SpriteBatch::flush` | platform: `sprite_batch_limits_draw_calls`; bench: пакет 1000 спрайтов |
+| E-D11 (headless-тесты) | engine/render/null_renderer | `NullRenderer` | engine, platform, integration |
+| FR-E02 (поля letterbox/pillarbox) | engine/ui/ui_root | `UiRoot::draw_letterbox` | platform: `ui_letterbox_does_not_cover_scene` |
+
+## 4. Ресурсы и данные (engine/resource)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E41 (разбор JSON) | engine/resource/json | `JsonParser::parse`, `JsonValue` | engine: `json_value_roundtrip` |
+| FR-E45 (кэш ресурсов) | engine/resource/json_loader | `JsonLoader::load`, `cache_size` | engine: `resource_cache_and_events` |
+| FR-E46 (события загрузки) | engine/resource/json_loader | `ResourceLoadFailedEvent` | engine: `resource_cache_and_events` |
+| FR-E47, DATA-E02 (схемы) | engine/resource/schema_validator | `SchemaValidator::validate` | engine: `schema_validator_*`; tool: `json_validator` |
+| FR-E47 (реестр схем) | engine/resource/schema_registry | `SchemaRegistry::load_directory` | tool: `json_validator` (10 схем) |
+| FR-E48 (сообщение об ошибке) | engine/resource/schema_validator | `ValidationResult::format` | engine: `schema_validator_*` |
+| п. 4.5.3 (обёртка данных) | engine/resource/schema_validator | `validate_envelope` | tool: `json_validator --envelope-only` |
+| DATA-E01…E05 (форматы данных) | docs/gost/data_formats.md | — | tool: `schema_gen` (генерация справочника) |
+| DATA-E04 (карты, 1 клетка = 5 футов) | assets/maps | `Map_GoblinAmbush` | tool: `map_validator` |
+
+## 5. Звук (engine/audio)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E50 (OGG/WAV) | engine/audio/sdl_audio | `SdlAudioSystem::play_music` | оконный прогон (SDL2_mixer) |
+| FR-E51 (1 канал музыки, ≥8 эффектов) | engine/audio/sdl_audio | `Mix_AllocateChannels` | оконный прогон: «каналов эффектов: 8» |
+| FR-E52 (громкость master/music/sfx) | engine/audio/audio_system.h | `AudioSettings` | оконный прогон (F2, +/−) |
+| FR-E53 (отказ звука без аварии) | engine/audio/audio_system.h | `NullAudioSystem` | оконный прогон с SDL_AUDIODRIVER=dummy |
+| FR-E54 (плавное затухание) | — | — | статус V1 (п. 4.1.5.2) |
+
+## 6. ECS, сцены, состояния (engine/ecs, engine/scene)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E60…E63 (сущности, компоненты) | engine/ecs/registry | `Registry`, `ComponentStorage` | engine: `ecs_query_works` |
+| FR-E64 (отложенные команды) | engine/ecs/command_buffer | `CommandBuffer` | engine: `ecs_command_buffer_deferred` |
+| FR-E65…E69 (представления) | engine/ecs/view | `make_view` | engine: `ecs_query_works`; bench: обход 10 000 сущностей |
+| FR-E70…E74 (стек сцен, пауза) | engine/scene/scene_stack | `SceneStack::push/pop` | engine: `scene_stack_push_pop` |
+| FR-E75…E79 (конечный автомат) | engine/scene/state_machine | `StateMachine` | integration: `turn_state_machine_flow` |
+| FR-E90…E92 (Save/Load, миграции) | engine/scene/save_system | `SaveSystem`, `MigrationChain` | integration: `save_load_roundtrip`, `save_migration` |
+| E-D07 (состояние ГСЧ в сохранении) | engine/scene/save_system | `rng_state` | integration: `save_load_roundtrip` |
+
+## 7. Пользовательский интерфейс (engine/ui)
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-E80 (дерево виджетов) | engine/ui/control | `Control::draw_all`, `dispatch_event` | engine: `ui_widgets_and_events` |
+| FR-E81 (контейнеры разметки) | engine/ui/layout | `VBoxLayout`, `HBoxLayout` | engine: `ui_layout_containers` |
+| FR-E82, FR-E83 (виджеты, события) | engine/ui/widgets | `Label`, `Button`, `Panel`, `Modal` | engine: `ui_widgets_and_events` |
+| FR-E84 (масштабирование UI) | engine/ui/ui_root | `UiRoot::resize`, `window_to_logical` | engine: `ui_scale_1280x720`; platform: `input_to_ui_adapter_translation` |
+| FR-E85 (стили, тема) | engine/ui/control | `Style` | engine: `ui_widgets_and_events` |
+| FR-E86, FR-E87 (прокрутка журнала) | engine/ui/widgets | `ScrollView` | engine: `ui_widgets_and_events` |
+| E-D12 (UI получает только DTO) | game/ui_widgets | `DiceBreakdownPanel` | integration: `dto_boundary_ui` |
+
+## 8. Модуль правил (rules/) — по ТЗ DOC-01
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| FR-K10…K19 (характеристики) | rules/abilities | `ability_modifier` | rules: `ability_modifier_table`; golden |
+| FR-K20…K29 (владение) | rules/proficiency | `proficiency_bonus` | rules: `proficiency_and_formulas` |
+| FR-K30…K39 (проверки, атака) | rules/dice_roller, rules/attack | `DiceRoller::roll`, `resolve_attack` | rules: `dice_roller_rules`, `attack_resolution`; golden |
+| FR-K40…K49 (урон, типы) | rules/damage | `apply_resistances` | rules: `damage_and_resistance` |
+| FR-K50…K59 (здоровье) | rules/health | `apply_damage`, `heal` | rules: `health_damage_order` |
+| FR-K60…K69 (инициатива) | rules/initiative | `InitiativeQueue::build` | rules: `initiative_tie_breaker` (стабильность очереди) |
+| FR-K70…K79 (состояния) | rules/conditions | `ConditionTable`, `ConditionFlags` | rules: `conditions_prone_and_flags` |
+| FR-K80…K89 (предметы) | rules/items | `ItemComponent` | rules: `items_components` |
+| FR-K90…K99 (особенности) | rules/features | `FeatureTable` | rules: `features_lookup` |
+| FR-K100…K109 (экономика хода) | rules/action_economy | `TurnResources` | rules: `turn_resources_atomic` |
+| FR-K102, AC-K22 (единая точка ГСЧ) | rules/dice_roller | `DiceRoller`, `IRandomProvider` | rules: `dice_roller_rules`; golden (seed 42) |
+| AC-K03 (средняя броня, DEX ≤ 2) | rules/ac | `calculate_ac`, `kMediumArmorDexCap` | rules: `armor_class_formula` |
+| E-D01 (движок не знает правил) | scripts/check_includes.py | — | tool: `check_includes.py` (CI) |
+| NFR-E10 (изоляция слоёв) | scripts/check_includes.py | — | tool: `check_includes.py` (CI) |
+| NFR-E09 (детерминизм) | rules/random_provider | `SeededRandomProvider` | golden: `golden_values.txt` |
+
+## 9. Нефункциональные требования
+
+| Требование | Модуль | Символ | Проверка |
+|------------|--------|--------|----------|
+| NFR-E01 (≤300 draw calls) | engine/render, engine/core | `SpriteBatch`, `DebugOverlay` | bench; оконный прогон: 7 draw calls |
+| NFR-E02 (карта 20×15 в бюджете кадра) | engine/render/sprite_batch | `SpriteBatch::flush` | bench: 1000 спрайтов за 0,05 мс |
+| NFR-E03 (1 млн бросков/с) | rules/dice_roller | `DiceRoller::roll` | bench: ~656 000/с в Debug |
+| NFR-E04 (загрузка ресурсов) | engine/resource/json_loader | `JsonLoader::load_uncached` | bench: ~2 100 документов/с |
+| NFR-E05 (10 000 сущностей ECS) | engine/ecs | `Registry` | bench: ~710 000 созданий/с |
+| NFR-E06 (отклик UI) | engine/ui | `UiRoot::draw` | bench: ~75 000 отрисовок дерева/с |
+| NFR-E08 (покрытие правил ≥90 %) | tests/rules_tests | 22 кейса / 339 проверок | rules: таблица 8.2 |
+| NFR-E09 (детерминированный вывод) | все модули | сортировка перечислений | golden; tool: `schema_gen`, `asset_packer` |
+| NFR-E12 (предупреждения как ошибки) | CMakeLists.txt | `-Wall -Wextra -Werror` | сборка всех целей |
+| NFR-E12 (самодостаточность заголовков) | scripts/hdrcheck.sh | — | tool: `hdrcheck.sh` |
+
+## 10. Не закрыто в V0.4 (перенос на V1)
+
+| Требование | Причина | Этап |
+|------------|---------|------|
+| FR-E04, FR-E05 (геймпад, сенсорный ввод) | статус V1 по п. 4.1.2.5 ТЗ DOC-04 | M11 |
+| FR-E35…E39 (подсветка зон, траектории) | статус V1 по п. 4.1.3.2 | M5 |
+| FR-E54 (плавное затухание музыки) | статус V1 по п. 4.1.5.2 | M9 |
+| FR-E96…E99 (редактор сцен) | не входит в MVP | M11 |
+| Стилевой шрифт .ttf (stb_truetype) | third_party/stb не заполнен; используется встроенный растровый шрифт | M2 |
+| nlohmann/json, tinyxml2, SDL2_image | third_party пуст; DR-01 (собственный парсер JSON) | M0/M4 |
