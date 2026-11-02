@@ -53,3 +53,12 @@ add_custom_target(check_all
     DEPENDS tests_rules tests_engine tests_platform tests_integration tests_golden
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
+
+# --- Контрольные замерa производительности (таблица 8.4, NFR-E02…NFR-E06) ------
+# Цель не регистрируется в ctest: замер зависит от нагрузки машины CI.
+# Запуск вручную: ./build/tests/benchmarks/benchmarks --assets ../assets [--strict]
+if(DND_BUILD_BENCHMARKS)
+    add_executable(benchmarks benchmarks/benchmarks.cpp)
+    target_include_directories(benchmarks PRIVATE ${DND_TESTS_INCLUDES})
+    target_link_libraries(benchmarks PRIVATE engine rules)
+endif()
