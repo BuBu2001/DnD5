@@ -1,0 +1,2 @@
+/usr/bin/ar qc librules.a CMakeFiles/rules.dir/abilities.cpp.o CMakeFiles/rules.dir/random_provider.cpp.o CMakeFiles/rules.dir/dice_roller.cpp.o
+/usr/bin/ranlib librules.a

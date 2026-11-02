@@ -1,0 +1,32 @@
+Start testing: Nov 02 15:45 UTC
+----------------------------------------------------------
+1/1 Testing: unit_tests
+1/1 Test: unit_tests
+Command: "/workspace/build/tests/tests"
+Directory: /workspace/build/tests
+"unit_tests" start time: Nov 02 15:45 UTC
+Output:
+----------------------------------------------------------
+TEST_CASE: Ability modifier table (п. Г.12)
+TEST_CASE: formulas (п. Г.13)
+TEST_CASE: DiceRoller жёсткие правила (п. 4.1.11.2)
+TEST_CASE: tie-breaker инициативы (п. 4.1.11.3)
+TEST_CASE: порядок списания урона (п. 4.1.11.4)
+TEST_CASE: атомарность траты ресурсов (п. 4.1.7.3)
+TEST_CASE: FSM хода — отмена из Targeting/Confirming (п. 4.1.7.2)
+TEST_CASE: EventBus subscribe/publish/unsubscribe (FR-E10)
+TEST_CASE: ECS-lite create/components/destroy (FR-E55…FR-E60)
+TEST_CASE: главный цикл, фиксированный шаг, лимит 5 шагов
+TEST_CASE: виртуальные пути assets:/ (FR-E07, DATA-E05)
+TEST_CASE: конфигурация — деградация при ошибках (п. 4.2.3)
+
+76 checks, 0 failures
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"unit_tests" end time: Nov 02 15:45 UTC
+"unit_tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 02 15:45 UTC

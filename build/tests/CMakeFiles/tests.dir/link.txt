@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/tests.dir/main.cpp.o -o tests  ../engine/libengine.a ../rules/librules.a 
