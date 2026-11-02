@@ -84,9 +84,9 @@
 | FR-E64 (отложенные команды) | engine/ecs/command_buffer | `CommandBuffer` | engine: `ecs_command_buffer_deferred` |
 | FR-E65…E69 (представления) | engine/ecs/view | `make_view` | engine: `ecs_query_works`; bench: обход 10 000 сущностей |
 | FR-E70…E74 (стек сцен, пауза) | engine/scene/scene_stack | `SceneStack::push/pop` | engine: `scene_stack_push_pop` |
-| FR-E75…E79 (конечный автомат) | engine/scene/state_machine | `StateMachine` | integration: `turn_state_machine_flow` |
-| FR-E90…E92 (Save/Load, миграции) | engine/scene/save_system | `SaveSystem`, `MigrationChain` | integration: `save_load_roundtrip`, `save_migration` |
-| E-D07 (состояние ГСЧ в сохранении) | engine/scene/save_system | `rng_state` | integration: `save_load_roundtrip` |
+| FR-E75…E79 (конечный автомат) | engine/scene/state_machine | `StateMachine` | integration: `turn_fsm_cancel_before_spend` |
+| FR-E90…E92 (Save/Load, миграции) | engine/scene/save_system | `SaveSystem`, `MigrationChain` | integration: `save_roundtrip`, `save_version_migration` |
+| E-D07 (состояние ГСЧ в сохранении) | engine/scene/save_system | `rng_state` | integration: `save_roundtrip` |
 
 ## 7. Пользовательский интерфейс (engine/ui)
 
