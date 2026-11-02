@@ -234,41 +234,47 @@ int next_power_of_two(int v) {
     return p;
 }
 
-// Полочная упаковка: кадры сортируются по убыванию высоты (then ширины),
-// полки заполняются слева направо, переполнение страницы создаёт следующую.
-bool pack_frames(const std::vector<Frame>& frames, const Options& options,
-                 std::vector<PlacedFrame>& placed, std::vector<Page>& pages,
-                 std::string& error) {
-    if (options.padding < 0 || options.border < 0) {
-        error = "padding и border не могут быть отрицательными";
-        return false;
-    }
+// Результат одного варианта раскладки: страницы, размещённые кадры, эффективность
+struct PackPlan {
+    std::vector<Page> pages;
+    std::vector<PlacedFrame> placed;
+    std::size_t total_area = 0;
+    std::size_t used_area = 0;
+    double efficiency = 0.0;   // % использования площади
+    std::string error;
+    bool ok = false;
+};
 
-    std::vector<Frame> sorted = frames;
-    std::sort(sorted.begin(), sorted.end(), [](const Frame& a, const Frame& b) {
+// Полочная упаковка (shelf first-fit decreasing height).
+//
+// Кадры сортируются по убыванию высоты, затем ширины, затем идентификатора —
+// сортировка обеспечивает детерминированный результат (NFR-E09). Страницы имеют
+// ОДИНАКОВЫЙ размер (минимальная степень двойки, вмещающая самый крупный кадр):
+// растущие страницы приводили к почти пустой второй странице и падению
+// эффективности использования площади (дефект первой реализации).
+//
+// Размещение выполняется в несколько проходов по оставшимся кадрам: на каждом
+// проходе кадр помещается в первую подходящую полку, иначе открывает новую полку.
+// Проход повторяется, пока размещается хотя бы один кадр, — это заполняет «хвосты»
+// полок мелкими кадрами. Когда ни один кадр не помещается, страница закрывается.
+// Упаковка при фиксированном размере страницы. Кадры, не поместившиеся на
+// странице, переходят на следующую; число страниц ограничено (защита от зацикливания).
+PackPlan pack_plan(const std::vector<Frame>& frames, const Options& options, int page_size) {
+    PackPlan plan;
+    std::vector<Frame> remaining = frames;
+    std::sort(remaining.begin(), remaining.end(), [](const Frame& a, const Frame& b) {
         if (a.h != b.h) return a.h > b.h;      // decreasing height
         if (a.w != b.w) return a.w > b.w;
-        return a.id < b.id;                    // детерминированный порядок равных
+        return a.id < b.id;                    // детерминированный порядок равных (NFR-E09)
     });
 
-    int page_size = 256;
-    if (options.power_of_two) {
-        // Стартовый размер — минимальная степень двойки, вмещающая самый крупный кадр
-        int max_w = 0;
-        int max_h = 0;
-        for (const auto& f : sorted) {
-            max_w = std::max(max_w, f.w);
-            max_h = std::max(max_h, f.h);
+    for (const auto& f : frames) {
+        if (f.w + 2 * options.border > page_size || f.h + 2 * options.border > page_size) {
+            plan.error = "кадр \"" + f.id + "\" (" + std::to_string(f.w) + "x" +
+                         std::to_string(f.h) + ") не помещается в страницу " +
+                         std::to_string(page_size) + " px";
+            return plan;
         }
-        const int need = std::max(max_w, max_h) + 2 * options.border + 2 * options.padding;
-        page_size = std::max(64, next_power_of_two(need));
-        if (page_size > options.max_page_size) {
-            error = "кадр не помещается в страницу " + std::to_string(options.max_page_size) +
-                    " px: требуется " + std::to_string(need) + " px";
-            return false;
-        }
-    } else {
-        page_size = options.max_page_size;
     }
 
     struct Shelf {
@@ -277,81 +283,130 @@ bool pack_frames(const std::vector<Frame>& frames, const Options& options,
         int x_cursor = 0;
     };
 
-    bool first_page = true;
-    while (!sorted.empty()) {
+    while (!remaining.empty()) {
         Page page;
         page.width = page_size;
         page.height = page_size;
         std::vector<Shelf> shelves;
         int y_cursor = options.border;
-        std::size_t index = 0;
+        const std::size_t before = remaining.size();
+        bool progress = true;
 
-        while (index < sorted.size()) {
-            const Frame& frame = sorted[index];
-            const int frame_w = frame.w + options.padding;
-            const int frame_h = frame.h + options.padding;
+        // Несколько проходов: мелкие кадры докладываются в «хвосты» прежних полок
+        while (!remaining.empty() && progress) {
+            progress = false;
+            for (std::size_t i = 0; i < remaining.size();) {
+                const Frame frame = remaining[i];
+                const int frame_w = frame.w + options.padding;
+                const int frame_h = frame.h + options.padding;
+                const int limit = page_size - options.border;
 
-            // Поиск первой полки, куда кадр помещается (first-fit)
-            bool fitted = false;
-            for (auto& shelf : shelves) {
-                if (shelf.height >= frame_h && shelf.x_cursor + frame_w <= page_size - options.border) {
-                    PlacedFrame pf;
-                    pf.frame = frame;
-                    pf.page = static_cast<int>(pages.size());
-                    pf.x = shelf.x_cursor;
-                    pf.y = shelf.y;
-                    placed.push_back(pf);
-                    shelf.x_cursor += frame_w;
-                    page.used_area += frame.w * frame.h;
-                    sorted.erase(sorted.begin() + static_cast<std::ptrdiff_t>(index));
-                    fitted = true;
-                    break;
+                bool fitted = false;
+                for (auto& shelf : shelves) {                 // first-fit по полкам
+                    if (shelf.height >= frame_h && shelf.x_cursor + frame_w <= limit) {
+                        plan.placed.push_back(
+                            PlacedFrame{frame, static_cast<int>(plan.pages.size()), shelf.x_cursor,
+                                        shelf.y, false});
+                        shelf.x_cursor += frame_w;
+                        page.used_area += frame.w * frame.h;
+                        remaining.erase(remaining.begin() + static_cast<std::ptrdiff_t>(i));
+                        fitted = true;
+                        progress = true;
+                        break;
+                    }
                 }
-            }
-            if (fitted) continue;
+                if (fitted) continue;
 
-            // Новая полка
-            if (y_cursor + frame_h <= page_size - options.border) {
-                Shelf shelf;
-                shelf.y = y_cursor;
-                shelf.height = frame_h;
-                shelf.x_cursor = options.border + frame_w;
-                PlacedFrame pf;
-                pf.frame = frame;
-                pf.page = static_cast<int>(pages.size());
-                pf.x = options.border;
-                pf.y = y_cursor;
-                placed.push_back(pf);
-                page.used_area += frame.w * frame.h;
-                shelves.push_back(shelf);
-                y_cursor += frame_h;
-                sorted.erase(sorted.begin() + static_cast<std::ptrdiff_t>(index));
-                continue;
+                if (y_cursor + frame_h <= limit) {             // новая полка
+                    plan.placed.push_back(
+                        PlacedFrame{frame, static_cast<int>(plan.pages.size()), options.border,
+                                    y_cursor, false});
+                    page.used_area += frame.w * frame.h;
+                    shelves.push_back(Shelf{y_cursor, frame_h, options.border + frame_w});
+                    y_cursor += frame_h;
+                    remaining.erase(remaining.begin() + static_cast<std::ptrdiff_t>(i));
+                    progress = true;
+                    continue;
+                }
+                ++i; // кадр ждёт следующей страницы
             }
-
-            // Страница заполнена: закрываем и открываем следующую
-            break;
         }
 
-        if (pages.empty() && placed.empty() && !sorted.empty()) {
-            error = "кадры не помещаются в страницу " + std::to_string(page_size) + " px";
-            return false;
+        if (remaining.size() == before) {
+            plan.error = "страница " + std::to_string(page_size) +
+                         " px не приняла ни одного кадра — упаковка невозможна";
+            return plan;
         }
-        if (first_page) first_page = false;
-        pages.push_back(page);
-        if (!sorted.empty()) {
-            if (page_size >= options.max_page_size) {
-                error = "не удалось упаковать все кадры: достигнут предел страницы " +
-                        std::to_string(options.max_page_size) + " px";
-                return false;
-            }
-            // Следующая страница вдвое больше (только для степеней двойки)
-            if (options.power_of_two) page_size = std::min(page_size * 2, options.max_page_size);
+        plan.pages.push_back(page);
+        if (plan.pages.size() > 64) {
+            plan.error = "превышено число страниц атласа (64)";
+            return plan;
         }
     }
 
-    std::sort(placed.begin(), placed.end(),
+    for (const auto& page : plan.pages) {
+        plan.total_area += static_cast<std::size_t>(page.width) * page.height;
+        plan.used_area += static_cast<std::size_t>(page.used_area);
+    }
+    plan.efficiency = plan.total_area > 0
+                          ? 100.0 * static_cast<double>(plan.used_area) /
+                                static_cast<double>(plan.total_area)
+                          : 0.0;
+    std::sort(plan.placed.begin(), plan.placed.end(),
               [](const PlacedFrame& a, const PlacedFrame& b) { return a.frame.id < b.frame.id; });
+    plan.ok = true;
+    return plan;
+}
+
+// Выбор размера страницы: минимум числа страниц, при равенстве — максимум
+// эффективности использования площади (метрика этапа M11). Кандидаты — степени
+// двойки от минимально возможной до --max-page-size.
+bool pack_frames(const std::vector<Frame>& frames, const Options& options,
+                 std::vector<PlacedFrame>& placed, std::vector<Page>& pages,
+                 std::string& error) {
+    if (options.padding < 0 || options.border < 0) {
+        error = "padding и border не могут быть отрицательными";
+        return false;
+    }
+    if (frames.empty()) {
+        error = "нет кадров для упаковки";
+        return false;
+    }
+
+    int max_w = 0;
+    int max_h = 0;
+    for (const auto& f : frames) {
+        max_w = std::max(max_w, f.w);
+        max_h = std::max(max_h, f.h);
+    }
+    const int min_size = options.power_of_two
+                             ? std::max(64, next_power_of_two(std::max(max_w, max_h) +
+                                                              2 * options.border))
+                             : options.max_page_size;
+    if (min_size > options.max_page_size) {
+        error = "крупнейший кадр " + std::to_string(max_w) + "x" + std::to_string(max_h) +
+                " не помещается в страницу " + std::to_string(options.max_page_size) + " px";
+        return false;
+    }
+
+    PackPlan best;
+    for (int size = min_size; size <= options.max_page_size; size *= 2) {
+        const PackPlan plan = pack_plan(frames, options, size);
+        if (!plan.ok) continue;
+        const bool better = !best.ok || plan.pages.size() < best.pages.size() ||
+                            (plan.pages.size() == best.pages.size() &&
+                             plan.efficiency > best.efficiency + 1e-9);
+        if (better) best = plan;
+        if (!options.power_of_two) break;   // размер задан явно — перебор не нужен
+    }
+
+    if (!best.ok) {
+        error = "не удалось упаковать кадры при ограничении страницы " +
+                std::to_string(options.max_page_size) + " px";
+        return false;
+    }
+    placed = std::move(best.placed);
+    pages = std::move(best.pages);
     return true;
 }
 
@@ -443,6 +498,21 @@ int main(int argc, char** argv) {
     std::size_t used_area = 0;
     for (const auto& pf : placed) {
         used_area += static_cast<std::size_t>(pf.frame.w) * static_cast<std::size_t>(pf.frame.h);
+    }
+    // Проверка пересечений кадров: раскладка не должна накладывать кадры друг на друга
+    for (std::size_t i = 0; i < placed.size(); ++i) {
+        for (std::size_t j = i + 1; j < placed.size(); ++j) {
+            const PlacedFrame& a = placed[i];
+            const PlacedFrame& b = placed[j];
+            if (a.page != b.page) continue;
+            const bool overlap = a.x < b.x + b.frame.w && b.x < a.x + a.frame.w &&
+                                 a.y < b.y + b.frame.h && b.y < a.y + a.frame.h;
+            if (overlap) {
+                std::fprintf(stderr, "ошибка упаковки: кадры %s и %s пересекаются\n",
+                             a.frame.id.c_str(), b.frame.id.c_str());
+                return 1;
+            }
+        }
     }
     const double efficiency = total_area > 0
                                   ? 100.0 * static_cast<double>(used_area) /

@@ -16,6 +16,7 @@
 #include <cctype>
 #include <cstdio>
 #include <fstream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -104,9 +105,9 @@ std::string schema_name_of(const std::string& schema_id) {
     return name;
 }
 
-// Идентификатор схемы → имя C++: condition → kSchemaCondition
-std::string to_const_name(const std::string& name) {
-    std::string out = "kSchema";
+// Имя в CamelCase без префикса: primary_ability → PrimaryAbility
+std::string to_camel(const std::string& name) {
+    std::string out;
     bool upper_next = true;
     for (char c : name) {
         if (c == '_' || c == '-' || c == '.') {
@@ -121,6 +122,11 @@ std::string to_const_name(const std::string& name) {
         }
     }
     return out;
+}
+
+// Идентификатор схемы → имя C++: condition → kSchemaCondition
+std::string to_const_name(const std::string& name) {
+    return "kSchema" + to_camel(name);
 }
 
 // Тип поля в терминах справочника: «string», «integer ≥ 1», «array of object», …
@@ -229,7 +235,7 @@ std::string header_for(const std::vector<SchemaDoc>& docs) {
     out += "// Источник: assets/schemas/*.schema.json. Повторная генерация:\n";
     out += "//   ./build/tools/schema_gen/schema_gen --assets assets\n";
     out += "#pragma once\n\n";
-    out += "#include <string_view>\n\n";
+    out += "#include <array>\n#include <string_view>\n\n";
     out += "namespace dnd::data {\n\n";
     out += "// Идентикаторы схем: значение поля \"$schema\" в файлах данных (п. 4.5.3)\n";
     for (const auto& d : docs) {
@@ -238,16 +244,18 @@ std::string header_for(const std::vector<SchemaDoc>& docs) {
     }
     out += "\n// Текущая версия формата данных (DATA-E02: проверка при загрузке и миграции)\n";
     out += "inline constexpr int kSchemaVersion = 1;\n\n";
-    out += "// Перечисления, извлечённые из схем (единая точка правды вместо литералов)\n";
+    out += "// Перечисления, извлечённые из схем (единая точка правды вместо литералов).\n";
+    out += "// Имя формируется как k<Схема><Поле>Values, например kItemDamageTypeValues.\n";
     for (const auto& d : docs) {
         const JsonValue* defs = d.root.find("definitions");
         const JsonValue* props = d.root.find("properties");
-        // enum-поля верхнего уровня и внутри properties
-        auto emit_enum = [&](const std::string& base, const JsonValue& node) {
+        std::set<std::string> emitted;  // защита от дублей при совпадении имён полей
+        auto emit_enum = [&](const JsonValue& node) {
             for (const auto& [key, child] : node.as_object()) {
                 const JsonValue* en = child.find("enum");
-                if (en == nullptr) continue;
-                std::string enum_name = "k" + to_const_name(base) + to_const_name(key) + "Values";
+                if (en == nullptr || en->as_array().empty()) continue;
+                const std::string enum_name = "k" + to_camel(d.name) + to_camel(key) + "Values";
+                if (!emitted.insert(enum_name).second) continue;
                 out += "inline constexpr std::array<std::string_view, " +
                        std::to_string(en->size()) + "> " + enum_name + " = {";
                 bool first = true;
@@ -259,8 +267,8 @@ std::string header_for(const std::vector<SchemaDoc>& docs) {
                 out += "};\n";
             }
         };
-        if (props != nullptr) emit_enum(d.name, *props);
-        if (defs != nullptr) emit_enum(d.name + "Def", *defs);
+        if (props != nullptr) emit_enum(*props);
+        if (defs != nullptr) emit_enum(*defs);
     }
     out += "\n} // namespace dnd::data\n";
     return out;

@@ -1,0 +1,29 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/atlas_manifest.schema.json",
+  "description": "Манифест атласа: вход tools/asset_packer. Перечисляет кадры (id, w, h, source) до упаковки; раскладка формируется упаковщиком и записывается в атлас (schemas/atlas.schema.json).",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "atlas_id", "frames"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "atlas_id": { "type": "string", "minLength": 3 },
+    "texture": { "type": "string" },
+    "comment": { "type": "string" },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "w", "h"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "w": { "type": "integer", "minimum": 1, "maximum": 4096 },
+          "h": { "type": "integer", "minimum": 1, "maximum": 4096 },
+          "source": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

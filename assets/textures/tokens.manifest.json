@@ -1,0 +1,22 @@
+{
+  "$schema": "schemas/atlas_manifest.schema.json",
+  "schema_version": 1,
+  "id": "AtlasManifest_Tokens",
+  "atlas_id": "Atlas_Tokens",
+  "texture": "textures/tokens_0.png",
+  "comment": "Кадры фигур и плиток для вертикального среза (Приложение Д). Размеры соответствуют заготовкам текстур 32×32 и 64×64; упаковщик формирует раскладку, изображение атласа собирается на этапе M2 (tools/asset_packer).",
+  "frames": [
+    { "id": "token_fighter",   "w": 32, "h": 32, "source": "textures/tokens/fighter.png" },
+    { "id": "token_rogue",     "w": 32, "h": 32, "source": "textures/tokens/rogue.png" },
+    { "id": "token_goblin",    "w": 32, "h": 32, "source": "textures/tokens/goblin.png" },
+    { "id": "tile_floor",      "w": 32, "h": 32, "source": "textures/tiles/floor_stone.png" },
+    { "id": "tile_wall",       "w": 32, "h": 32, "source": "textures/tiles/wall_stone.png" },
+    { "id": "tile_rubble",     "w": 32, "h": 32, "source": "textures/tiles/rubble.png" },
+    { "id": "icon_advantage",  "w": 24, "h": 24, "source": "textures/icons/advantage.png" },
+    { "id": "icon_disadvantage","w": 24, "h": 24, "source": "textures/icons/disadvantage.png" },
+    { "id": "icon_prone",      "w": 24, "h": 24, "source": "textures/icons/prone.png" },
+    { "id": "portrait_fighter","w": 64, "h": 64, "source": "textures/portraits/fighter.png" },
+    { "id": "portrait_rogue",  "w": 64, "h": 64, "source": "textures/portraits/rogue.png" },
+    { "id": "portrait_goblin", "w": 64, "h": 64, "source": "textures/portraits/goblin.png" }
+  ]
+}

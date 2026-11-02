@@ -1,0 +1,52 @@
+{
+  "$schema_version": 1,
+  "schema_id": "schemas/atlas.schema.json",
+  "description": "Атлас спрайтов: результат работы tools/asset_packer. Одна страница атласа — одна текстура, поэтому отрисовка сцены укладывается в бюджет draw calls (E-D05, NFR-E01).",
+  "type": "object",
+  "required": ["$schema", "schema_version", "id", "pages", "frames"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 3 },
+    "padding": { "type": "integer", "minimum": 0, "maximum": 16 },
+    "border": { "type": "integer", "minimum": 0, "maximum": 16 },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["index", "width", "height", "texture"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "width": { "type": "integer", "minimum": 16, "maximum": 4096 },
+          "height": { "type": "integer", "minimum": 16, "maximum": 4096 },
+          "texture": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "page", "frame"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "page": { "type": "integer", "minimum": 0 },
+          "rotated": { "type": "boolean" },
+          "source": { "type": "string" },
+          "frame": {
+            "type": "object",
+            "required": ["x", "y", "w", "h"],
+            "properties": {
+              "x": { "type": "integer", "minimum": 0 },
+              "y": { "type": "integer", "minimum": 0 },
+              "w": { "type": "integer", "minimum": 1 },
+              "h": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
