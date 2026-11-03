@@ -35,6 +35,18 @@ public:
 
     // Воспроизведение: пути — виртуальные assets:/… (DATA-E05)
     virtual SoundHandle play_music(const std::string& virtual_path, bool loop) = 0;
+
+    // Плавное затухание/нарастание музыки (FR-E54). Базовая реализация —
+    // мгновенные stop/play; SDL2_mixer переопределяет через Mix_Fade*Music.
+    virtual void fade_out_music(int milliseconds) {
+        (void)milliseconds;
+        stop_music();
+    }
+    virtual SoundHandle fade_in_music(const std::string& virtual_path, bool loop,
+                                      int milliseconds) {
+        (void)milliseconds;
+        return play_music(virtual_path, loop);
+    }
     virtual SoundHandle play_sfx(const std::string& virtual_path) = 0;
     virtual void stop_music() = 0;
     virtual void stop_all_sfx() = 0;
@@ -64,6 +76,9 @@ public:
     SoundHandle play_music(const std::string& virtual_path, bool loop) override;
     SoundHandle play_sfx(const std::string& virtual_path) override;
     void stop_music() override;
+    void fade_out_music(int milliseconds) override;
+    SoundHandle fade_in_music(const std::string& virtual_path, bool loop,
+                              int milliseconds) override;
     void stop_all_sfx() override;
 
     void set_settings(const AudioSettings& settings) override;
@@ -95,6 +110,15 @@ public:
     SoundHandle play_music(const std::string&, bool) override { return kInvalidSound; }
     SoundHandle play_sfx(const std::string&) override { return kInvalidSound; }
     void stop_music() override {}
+    // FR-E54 в headless: вызовы фиксируются для проверки контракта
+    void fade_out_music(int milliseconds) override { last_fade_ms_ = milliseconds; ++fades_; }
+    SoundHandle fade_in_music(const std::string&, bool, int milliseconds) override {
+        last_fade_ms_ = milliseconds;
+        ++fades_;
+        return kInvalidSound;
+    }
+    int last_fade_ms() const { return last_fade_ms_; }
+    int fade_call_count() const { return fades_; }
     void stop_all_sfx() override {}
     void set_settings(const AudioSettings& s) override { settings_ = s; }
     const AudioSettings& settings() const override { return settings_; }
@@ -107,6 +131,8 @@ public:
 
 private:
     AudioSettings settings_{};
+    int last_fade_ms_ = -1;
+    int fades_ = 0;
 };
 
 } // namespace engine::audio

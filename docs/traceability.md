@@ -71,6 +71,7 @@
 | Требование | Модуль | Символ | Проверка |
 |------------|--------|--------|----------|
 | FR-E50 (OGG/WAV) | engine/audio/sdl_audio | `SdlAudioSystem::play_music` | оконный прогон (SDL2_mixer) |
+| FR-E54 (плавное затухание музыки) | engine/audio/audio_system, sdl_audio | `IAudioSystem::fade_out_music/fade_in_music` (SDL: Mix_FadeOutMusic/Mix_FadeInMusic) | engine: `audio_music_fade`; F2 в оконном режиме (600 мс) |
 | FR-E51 (1 канал музыки, ≥8 эффектов) | engine/audio/sdl_audio | `Mix_AllocateChannels` | оконный прогон: «каналов эффектов: 8» |
 | FR-E52 (громкость master/music/sfx) | engine/audio/audio_system.h | `AudioSettings` | оконный прогон (F2, +/−) |
 | FR-E53 (отказ звука без аварии) | engine/audio/audio_system.h | `NullAudioSystem` | оконный прогон с SDL_AUDIODRIVER=dummy |
@@ -141,7 +142,6 @@
 |------------|---------|------|
 | FR-E04, FR-E05 (геймпад, сенсорный ввод) | статус V1 по п. 4.1.2.5 ТЗ DOC-04 | M11 |
 | FR-E36…E39 (траектории, зоны угрозы) | статус V1 по п. 4.1.3.2; подсветка достижимых клеток (основа FR-E35) реализована в V0.5 | M5 |
-| FR-E54 (плавное затухание музыки) | статус V1 по п. 4.1.5.2 | M9 |
 | FR-E96…E99 (редактор сцен) | не входит в MVP | M11 |
 | Стилевой шрифт .ttf (stb_truetype) | используется встроенный растровый шрифт (DR-03); stb_image вендорен в V0.4.9 | M2 |
 | nlohmann/json, tinyxml2, SDL2_image | DR-01/DR-02 (собственный парсер JSON); stb_image закрывает загрузку PNG | M0/M4 |

@@ -433,11 +433,12 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
             if (e.key == platform::Key::Escape) running = false;
             if (e.key == platform::Key::F1) overlay.toggle();
             if (e.key == platform::Key::F2) {
+                // FR-E54: плавное затухание/нарастание музыки (600 мс)
                 if (!music_started) {
-                    audio->play_music("assets:/audio/battle_theme.wav", /*loop=*/true);
+                    audio->fade_in_music("assets:/audio/battle_theme.wav", /*loop=*/true, 600);
                     music_started = true;
                 } else {
-                    audio->stop_music();
+                    audio->fade_out_music(600);
                     music_started = false;
                 }
             }

@@ -153,6 +153,49 @@ void SdlAudioSystem::stop_music() {
     if (initialized_) Mix_HaltMusic();
 }
 
+// FR-E54: плавное затухание музыки; после окончания микшер останавливает трек сам
+void SdlAudioSystem::fade_out_music(int milliseconds) {
+    if (!initialized_) return;
+    if (milliseconds <= 0 || Mix_FadeOutMusic(milliseconds) != 1) Mix_HaltMusic();
+}
+
+SoundHandle SdlAudioSystem::fade_in_music(const std::string& virtual_path, bool loop,
+                                          int milliseconds) {
+    if (!initialized_) return kInvalidSound;
+
+    // Трек уже загружен (пауза/возобновление) — только нарастающий пуск
+    if (impl_->music != nullptr && impl_->music_path == virtual_path) {
+        if (Mix_FadeInMusic(impl_->music, loop ? -1 : 0, milliseconds) != 0) {
+            core::Log::instance().error(std::string("audio: Mix_FadeInMusic: ") + Mix_GetError());
+            return kInvalidSound;
+        }
+        return impl_->next_handle++;
+    }
+
+    if (impl_->music != nullptr) {
+        Mix_FreeMusic(impl_->music);
+        impl_->music = nullptr;
+    }
+    const auto physical = impl_->fs.resolve(virtual_path);
+    if (!physical) {
+        core::Log::instance().error("audio: " + physical.error_message());
+        return kInvalidSound;
+    }
+    impl_->music = Mix_LoadMUS(physical.value().c_str());
+    if (impl_->music == nullptr) {
+        core::Log::instance().error("audio: не удалось загрузить музыку " + virtual_path + ": " +
+                                    Mix_GetError());
+        impl_->music_path.clear();
+        return kInvalidSound;
+    }
+    impl_->music_path = virtual_path;
+    if (Mix_FadeInMusic(impl_->music, loop ? -1 : 0, milliseconds) != 0) {
+        core::Log::instance().error(std::string("audio: Mix_FadeInMusic: ") + Mix_GetError());
+        return kInvalidSound;
+    }
+    return impl_->next_handle++;
+}
+
 void SdlAudioSystem::stop_all_sfx() {
     if (initialized_) Mix_HaltChannel(-1);
 }

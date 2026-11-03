@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 
+#include "audio/audio_system.h"
 #include "core/config.h"
 #include "core/debug_overlay.h"
 #include "core/event_bus.h"
@@ -615,4 +616,15 @@ TEST_CASE("json_value_roundtrip", "[engine][FR-E41]") {
     REQUIRE(parsed.value().find_path("list/1")->as_string() == "два");
     REQUIRE(parsed.value().find_path("list/9") == nullptr);
     REQUIRE(parsed.value().at("id").as_int(-1) == -1);
+}
+
+// --- FR-E54: плавное затухание музыки -------------------------------------------
+TEST_CASE("audio_music_fade", "[engine][FR-E54]") {
+    engine::audio::NullAudioSystem audio;
+    REQUIRE(audio.init());
+    audio.fade_out_music(600);
+    CHECK(audio.last_fade_ms() == 600);
+    audio.fade_in_music("assets:/audio/battle_theme.wav", true, 600);
+    CHECK(audio.last_fade_ms() == 600);
+    CHECK(audio.fade_call_count() == 2);
 }
