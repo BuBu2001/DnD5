@@ -314,6 +314,10 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
     std::shared_ptr<game::TurnResourceBar> resources_panel;
     std::shared_ptr<game::CombatLog> combat_log;
     std::shared_ptr<game::DiceBreakdownPanel> breakdown_panel;
+    std::shared_ptr<game::CharacterSheetPanel> sheet_panel;
+    std::shared_ptr<ui::Panel> inventory_panel;
+    std::shared_ptr<ui::Label> inventory_title;
+    std::vector<std::shared_ptr<ui::Label>> inventory_rows;
     if (combat_ptr != nullptr) {
         initiative_panel = std::make_shared<game::InitiativeTracker>();
         initiative_panel->set_name("initiative");
@@ -338,6 +342,39 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
         combat_log->set_position(ui::Vec2{16.f, 560.f});
         combat_log->set_size(ui::Size{620.f, 100.f});
         ui_root.add(combat_log);
+
+        // Панель персонажа (C) и инвентарь (I) — скрыты до открытия (docs/controls.md)
+        sheet_panel = std::make_shared<game::CharacterSheetPanel>();
+        sheet_panel->set_name("sheet");
+        sheet_panel->set_position(ui::Vec2{660.f, 540.f});
+        sheet_panel->set_size(ui::Size{290.f, 150.f});
+        sheet_panel->set_visible(false);
+        ui_root.add(sheet_panel);
+
+        inventory_panel = std::make_shared<ui::Panel>();
+        inventory_panel->set_name("inventory");
+        inventory_panel->set_position(ui::Vec2{660.f, 430.f});
+        inventory_panel->set_size(ui::Size{290.f, 104.f});
+        inventory_panel->set_visible(false);
+        inventory_title = std::make_shared<ui::Label>("Инвентарь");
+        inventory_title->set_position(ui::Vec2{8.f, 4.f});
+        inventory_title->set_size(ui::Size{274.f, 18.f});
+        inventory_title->set_font_size(14.f);
+        inventory_panel->add_child(inventory_title);
+        for (int i = 0; i < 4; ++i) {
+            auto row = std::make_shared<ui::Label>("");
+            row->set_position(ui::Vec2{8.f, 24.f + static_cast<float>(i) * 19.f});
+            row->set_size(ui::Size{274.f, 18.f});
+            row->set_font_size(13.f);
+            inventory_panel->add_child(row);
+            inventory_rows.push_back(row);
+        }
+        ui_root.add(inventory_panel);
+
+        // L — показать/скрыть журнал боя
+        combat_ptr->set_log_toggle([combat_log] {
+            if (combat_log) combat_log->set_visible(!combat_log->visible());
+        });
 
         // События боя → журнал и панель разбора (подписка на шину, FR-E10)
         bus.subscribe<game::AttackResolvedEvent>(
@@ -422,8 +459,8 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
             const float mx = input.mouse_x();
             const float my = input.mouse_y();
             const bool ui_captured =
-                (mx >= 964.f && my <= 560.f) || (mx <= 640.f && my >= 556.f) ||
-                (mx <= 280.f && my <= 92.f);
+                combat_ptr->panels_blocking() || (mx >= 964.f && my <= 560.f) ||
+                (mx <= 640.f && my >= 556.f) || (mx <= 280.f && my <= 92.f);
             combat_ptr->set_mouse_logical(mx, my);
             combat_ptr->handle_actions(actions, ui_captured);
         }
@@ -437,6 +474,31 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
             if (initiative_panel) initiative_panel->set_tracker(combat_ptr->initiative_dto());
             if (resources_panel) resources_panel->set_resources(combat_ptr->turn_resources_dto());
             if (status) status->set_text(combat_ptr->status());
+            // Панели C/I: видимость и содержимое — из DTO сцены (E-D12)
+            if (sheet_panel) {
+                const bool open = combat_ptr->sheet_open();
+                sheet_panel->set_visible(open);
+                if (open) sheet_panel->set_summary(combat_ptr->character_sheet_dto());
+            }
+            if (inventory_panel) {
+                const bool open = combat_ptr->inventory_open();
+                inventory_panel->set_visible(open);
+                if (open) {
+                    const auto entries = combat_ptr->inventory_entries();
+                    const auto summary = combat_ptr->character_sheet_dto();
+                    inventory_title->set_text("Инвентарь: " + summary.name);
+                    for (std::size_t i = 0; i < inventory_rows.size(); ++i) {
+                        if (i < entries.size()) {
+                            inventory_rows[i]->set_text(entries[i].name +
+                                                        (entries[i].note.empty()
+                                                             ? ""
+                                                             : " — " + entries[i].note));
+                        } else {
+                            inventory_rows[i]->set_text("");
+                        }
+                    }
+                }
+            }
         }
     });
     loop.set_render([&](double alpha) {

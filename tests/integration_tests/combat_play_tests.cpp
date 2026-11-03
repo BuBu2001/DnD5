@@ -197,3 +197,96 @@ TEST_CASE("combat_play_reachable_respects_difficult_terrain", "[integration][com
         CHECK(f.scene.combat().grid().terrain(cell) != rules::TerrainType::Impassable);
     }
 }
+
+// --- Панели C/I/L/M (docs/controls.md) -------------------------------------------
+namespace {
+
+engine::platform::InputState key_frame(engine::platform::Key key) {
+    engine::platform::InputState state;
+    state.begin_frame();
+    engine::platform::InputEvent e;
+    e.type = engine::platform::InputEvent::Type::KeyDown;
+    e.key = key;
+    state.push_event(e);
+    state.set_key(key, true);
+    return state;
+}
+
+} // namespace
+
+TEST_CASE("combat_play_panels_toggle_and_fill", "[integration][combat_play][panels]") {
+    Fixture f;
+    engine::platform::InputActions actions;
+    game::build_control_scheme(actions);
+
+    const auto fighter = find_combatant(f, "Воин");
+    f.scene.set_selected(fighter);
+
+    // DTO листа персонажа (E-D12: панель получит только эти значения)
+    const auto summary = f.scene.character_sheet_dto();
+    CHECK(summary.name == "Воин");
+    CHECK(summary.ac == 18);
+    CHECK(summary.hp_current == 12);
+    CHECK(summary.hp_max == 12);
+    CHECK(summary.speed_feet == 30);
+
+    // Инвентарь из assets/data/characters/fighter.json (3 предмета)
+    const auto equipment = f.scene.inventory_entries();
+    REQUIRE(equipment.size() == 3);
+    CHECK(equipment[0].name == "Длинный меч");
+    CHECK(equipment[0].note.find("1d8") != std::string::npos);
+    // У гоблина нет листа персонажа — инвентарь пуст
+    const auto goblin = find_combatant(f, "Гоблин 1");
+    f.scene.set_selected(goblin);
+    CHECK(f.scene.inventory_entries().empty());
+    f.scene.set_selected(fighter);
+
+    // C — панель персонажа: открытие, блокировка поля, закрытие
+    REQUIRE_FALSE(f.scene.sheet_open());
+    {
+        auto state = key_frame(engine::platform::Key::C);
+        actions.update(state);
+        f.scene.handle_actions(actions, false);
+    }
+    REQUIRE(f.scene.sheet_open());
+    CHECK(f.scene.panels_blocking());
+    {
+        // Поле заблокировано панелью: клик по клетке не выполняется
+        auto state = key_frame(engine::platform::Key::C); // закрыть
+        actions.update(state);
+        f.scene.handle_actions(actions, false);
+    }
+    REQUIRE_FALSE(f.scene.sheet_open());
+
+    // I — инвентарь, M — карта, Q — закрывает всё
+    {
+        auto state = key_frame(engine::platform::Key::I);
+        actions.update(state);
+        f.scene.handle_actions(actions, false);
+        CHECK(f.scene.inventory_open());
+    }
+    {
+        auto state = key_frame(engine::platform::Key::M);
+        actions.update(state);
+        f.scene.handle_actions(actions, false);
+        CHECK(f.scene.map_open());
+        f.scene.render(0.0); // оверлей карты отрисовывается без падения
+    }
+    {
+        auto state = key_frame(engine::platform::Key::Q);
+        actions.update(state);
+        f.scene.handle_actions(actions, false);
+        REQUIRE_FALSE(f.scene.inventory_open());
+        REQUIRE_FALSE(f.scene.map_open());
+    }
+
+    // L — callback журнала боя
+    int log_toggles = 0;
+    f.scene.set_log_toggle([&] { ++log_toggles; });
+    {
+        auto state = key_frame(engine::platform::Key::L);
+        actions.update(state);
+        f.scene.handle_actions(actions, false);
+    }
+    CHECK(log_toggles == 1);
+}

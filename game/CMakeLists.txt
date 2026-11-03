@@ -6,6 +6,7 @@ add_library(game_logic STATIC
     save/combat_save_state.cpp
     ui_widgets/combat_widgets.cpp
     ui_widgets/dice_breakdown_panel.cpp
+    panels/panels.cpp
 )
 target_include_directories(game_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(game_logic PUBLIC engine rules)

@@ -22,6 +22,7 @@
 #include "controls/cell_picking.h"
 #include "controls/control_scheme.h"
 #include "core/file_system.h"
+#include "panels/panels.h"
 #include "platform/input_actions.h"
 #include "render/camera.h"
 #include "render/renderer.h"
@@ -93,9 +94,31 @@ public:
         hover_ = pick.has_value() ? std::optional<rules::Cell>(pick->cell) : std::nullopt;
 
         if (actions.pressed(game::actions::kCancel)) {
-            selected_ = kNone;
-            status_ = "Выбор отменён (ПКМ/Q)";
+            if (sheet_open_ || inventory_open_ || map_open_) {
+                sheet_open_ = inventory_open_ = map_open_ = false;
+                status_ = "Панели закрыты";
+            } else {
+                selected_ = kNone;
+                status_ = "Выбор отменён (ПКМ/Q)";
+            }
         }
+        // Панели C / I / L / M (docs/controls.md)
+        if (actions.pressed(game::actions::kCharacterSheet)) {
+            sheet_open_ = !sheet_open_;
+            status_ = sheet_open_ ? "Панель персонажа (C — закрыть)" : "";
+        }
+        if (actions.pressed(game::actions::kInventory)) {
+            inventory_open_ = !inventory_open_;
+            status_ = inventory_open_ ? "Инвентарь (I — закрыть)" : "";
+        }
+        if (actions.pressed(game::actions::kCombatLog) && log_toggle_) {
+            log_toggle_();
+        }
+        if (actions.pressed(game::actions::kMap)) {
+            map_open_ = !map_open_;
+            status_ = map_open_ ? "Карта (M — закрыть)" : "";
+        }
+        if (panels_blocking()) return; // модальные панели перехватывают поле
         if (actions.pressed(game::actions::kSelect) && hover_.has_value()) {
             request_cell_action(*hover_);
         }
@@ -281,6 +304,9 @@ public:
         // Статусная строка сцены
         renderer_.draw_text(16.f, 700.f - 118.f, status_, 15.f,
                             engine::render::Color{1.f, 0.95f, 0.75f, 1.f});
+
+        // Панель карты (M): вся комната в центре экрана (масштаб 16 px/клетка)
+        if (map_open_) draw_map_overlay();
         ++renders_;
     }
 
@@ -305,6 +331,31 @@ public:
         selected_ = idx;
         refresh_reachable();
     }
+    // Панели C/I/M (L переключает внешний журнал через callback)
+    bool sheet_open() const { return sheet_open_; }
+    bool inventory_open() const { return inventory_open_; }
+    bool map_open() const { return map_open_; }
+    bool panels_blocking() const { return sheet_open_ || inventory_open_ || map_open_; }
+    void set_log_toggle(std::function<void()> fn) { log_toggle_ = std::move(fn); }
+
+    // Сводка выбранного (или активного) бойца для CharacterSheetPanel (E-D12)
+    rules::CharacterSummaryDTO character_sheet_dto() const {
+        std::size_t idx = selected_ != kNone ? selected_ : active_unit_index();
+        if (idx == kNone || idx >= combat_.combatant_count()) return {};
+        const auto& unit = combat_.combatant(idx);
+        return make_character_summary(unit.name, /*level=*/1, unit.ac, unit.health.hp_current,
+                                      unit.health.hp_max, unit.speed_feet);
+    }
+
+    // Экипировка выбранного бойца из данных assets (персонажи без файла — пусто)
+    std::vector<EquipmentEntry> inventory_entries() const {
+        std::size_t idx = selected_ != kNone ? selected_ : active_unit_index();
+        if (idx == kNone || idx >= character_files_.size() || character_files_[idx].empty()) {
+            return {};
+        }
+        return load_character_equipment(fs_, character_files_[idx]);
+    }
+
     bool has_breakdown() const { return has_breakdown_; }
     const rules::RollBreakdownDTO& last_breakdown() const { return last_breakdown_; }
     const std::string& status() const { return status_; }
@@ -377,6 +428,7 @@ private:
             }
         }
         // Спавны: состав вертикального среза (Приложение Д)
+        character_files_.clear();
         int goblin_seq = 0;
         for (const auto& spawn : map.at("spawns").as_array()) {
             const std::string id = spawn.at("entity_id").as_string_or("");
@@ -386,16 +438,19 @@ private:
                 combat_.add_combatant("Воин", true, 12, 5, 2, 18, x, y);
                 combat_.combatant_mut(combat_.combatant_count() - 1).speed_feet = 30;
                 token_kind_.push_back(TokenKind::Fighter);
+                character_files_.push_back("assets:/data/characters/fighter.json");
             } else if (id == "Character_PlayerRogue") {
                 combat_.add_combatant("Плут", true, 9, 4, 3, 14, x, y);
                 combat_.combatant_mut(combat_.combatant_count() - 1).speed_feet = 30;
                 token_kind_.push_back(TokenKind::Rogue);
+                character_files_.push_back("assets:/data/characters/rogue.json");
             } else if (id == "Enemy_Goblin") {
                 ++goblin_seq;
                 combat_.add_combatant("Гоблин " + std::to_string(goblin_seq), false, 7, 4, 2, 15,
                                       x, y);
                 combat_.combatant_mut(combat_.combatant_count() - 1).speed_feet = 30;
                 token_kind_.push_back(TokenKind::Goblin);
+                character_files_.push_back(""); // у противника нет листа персонажа
             }
         }
         if (combat_.combatant_count() == 0) spawn_default_slice();
@@ -413,6 +468,8 @@ private:
             combat_.combatant_mut(i).speed_feet = 30;
         }
         token_kind_ = {TokenKind::Fighter, TokenKind::Rogue, TokenKind::Goblin, TokenKind::Goblin};
+        character_files_ = {"assets:/data/characters/fighter.json",
+                            "assets:/data/characters/rogue.json", "", ""};
     }
 
     // --- текстуры (docs/assets.md) -------------------------------------------------
@@ -625,6 +682,39 @@ private:
         }
     }
 
+    void draw_map_overlay() {
+        using engine::render::Color;
+        constexpr float kMapCell = 16.f;
+        const float w = grid_columns_ * kMapCell;
+        const float h = grid_rows_ * kMapCell;
+        const float x0 = (1280.f - w) * 0.5f;
+        const float y0 = (720.f - h) * 0.5f;
+        renderer_.draw_rect({x0 - 6.f, y0 - 6.f, w + 12.f, h + 12.f}, Color{0.06f, 0.06f, 0.09f, 0.92f});
+        for (int r = 0; r < grid_rows_; ++r) {
+            for (int c = 0; c < grid_columns_; ++c) {
+                const rules::Cell cell{c, r};
+                Color col{0.30f, 0.29f, 0.35f, 1.f};
+                switch (combat_.grid().terrain(cell)) {
+                    case rules::TerrainType::Impassable: col = Color{0.12f, 0.12f, 0.16f, 1.f}; break;
+                    case rules::TerrainType::Difficult:  col = Color{0.45f, 0.40f, 0.28f, 1.f}; break;
+                    default: break;
+                }
+                renderer_.draw_rect({x0 + c * kMapCell, y0 + r * kMapCell, kMapCell - 1.f,
+                                     kMapCell - 1.f}, col);
+            }
+        }
+        for (std::size_t i = 0; i < combat_.combatant_count(); ++i) {
+            const auto& unit = combat_.combatant(i);
+            if (unit.health.hp_current <= 0) continue;
+            renderer_.draw_rect({x0 + unit.cell.x * kMapCell + 3.f,
+                                 y0 + unit.cell.y * kMapCell + 3.f, kMapCell - 7.f, kMapCell - 7.f},
+                                unit.player_side ? Color{0.35f, 0.6f, 1.f, 1.f}
+                                                 : Color{0.9f, 0.35f, 0.3f, 1.f});
+        }
+        renderer_.draw_text(x0, y0 - 24.f, "Карта: Засада гоблинов (M — закрыть)", 15.f,
+                            Color{1.f, 0.95f, 0.75f, 1.f});
+    }
+
     void play_sfx(const std::string& path) {
         if (audio_ != nullptr) audio_->play_sfx(path); // ошибка — только журнал (FR-E52)
     }
@@ -659,6 +749,11 @@ private:
     std::size_t selected_ = kNone;
     std::optional<rules::Cell> hover_;
     std::vector<rules::Cell> reachable_cache_;
+    bool sheet_open_ = false;
+    bool inventory_open_ = false;
+    bool map_open_ = false;
+    std::function<void()> log_toggle_;
+    std::vector<std::string> character_files_;
     bool enemy_turn_pending_ = false;
     bool battle_over_ = false;
     bool has_breakdown_ = false;
