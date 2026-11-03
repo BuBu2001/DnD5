@@ -365,7 +365,7 @@ TEST_CASE("save_version_migration", "[integration][FR-E91]") {
 }
 
 // --- Адаптер правил и события шины (п. 4.1.11.6, FR-E110…FR-E121) ------------------
-TEST_CASE("rules_adapter_publishes_events", "[integration][M6][п.4.1.11.6]") {
+TEST_CASE("rules_adapter_publishes_events", "[integration][M6][p4116]") {
     engine::core::EventBus bus;
     engine::ecs::Registry registry;
     rules::SeededRandomProvider rng(2026);

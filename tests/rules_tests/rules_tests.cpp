@@ -696,7 +696,7 @@ TEST_CASE("modifier_stack_layers", "[rules][FR-E120][E-R10]") {
 }
 
 // --- Формулы п. Г.13 и контрольные примеры раздела 8.8 ---------------------------
-TEST_CASE("formulas_reference_table", "[rules][Г.13]") {
+TEST_CASE("formulas_reference_table", "[rules][formulas_G13]") {
     // Контрольный пример 11: жрец, WIS 16 (mod +3), 5-й уровень (prof +3) → DC 14
     REQUIRE(rules::spell_save_dc(rules::ability_modifier(16),
                                 rules::proficiency_bonus_for_level(5)) == 14);

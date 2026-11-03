@@ -6,11 +6,23 @@
 #   tests_golden       — golden-тесты с фиксированным seed (подраздел 8.4)
 #   tests (устаревшая единая цель) — сохранена до завершения переноса кейсов
 
+# Catch2 (таблица 4.16, DR-10): single-header в third_party/catch2 — при его
+# наличии тесты собираются на настоящем Catch2, иначе на микро-каркасе.
+option(DND_WITH_CATCH2 "Использовать Catch2 из third_party/catch2 для тестов" ON)
+if(DND_WITH_CATCH2 AND EXISTS ${CMAKE_SOURCE_DIR}/third_party/catch2/catch.hpp)
+    set(DND_CATCH2_MODE ON)
+    message(STATUS "Тесты: Catch2 v2 (third_party/catch2)")
+else()
+    set(DND_CATCH2_MODE OFF)
+    message(STATUS "Тесты: микро-каркас test_harness.h (Catch2 не найден)")
+endif()
+
 set(DND_TESTS_INCLUDES
     ${CMAKE_SOURCE_DIR}/engine
     ${CMAKE_SOURCE_DIR}/game
     ${CMAKE_SOURCE_DIR}/game/combat
     ${CMAKE_SOURCE_DIR}/tests
+    ${CMAKE_SOURCE_DIR}/third_party
 )
 
 # Каталог assets/ для испытаний ресурсов и сохранений (DATA-E01)
@@ -19,11 +31,17 @@ set(DND_GOLDEN_PATH ${CMAKE_SOURCE_DIR}/tests/golden/golden_values.txt)
 
 add_executable(tests_rules test_main.cpp rules_tests/rules_tests.cpp)
 target_include_directories(tests_rules PRIVATE ${DND_TESTS_INCLUDES})
+if(DND_CATCH2_MODE)
+    target_compile_definitions(tests_rules PRIVATE DND_WITH_CATCH2)
+endif()
 target_link_libraries(tests_rules PRIVATE rules)
 add_test(NAME rules_unit_tests COMMAND tests_rules)
 
 add_executable(tests_engine test_main.cpp engine_tests/engine_tests.cpp)
 target_include_directories(tests_engine PRIVATE ${DND_TESTS_INCLUDES})
+if(DND_CATCH2_MODE)
+    target_compile_definitions(tests_engine PRIVATE DND_WITH_CATCH2)
+endif()
 target_compile_definitions(tests_engine PRIVATE DND_ASSETS_ROOT="${DND_ASSETS_DIR}")
 target_link_libraries(tests_engine PRIVATE engine)
 add_test(NAME engine_tests COMMAND tests_engine)
@@ -32,12 +50,18 @@ add_test(NAME engine_tests COMMAND tests_engine)
 # кадр ввода, адаптация в UI, шрифтовой атлас, загрузчик функций OpenGL, пакеты спрайтов.
 add_executable(tests_platform test_main.cpp engine_tests/platform_tests.cpp)
 target_include_directories(tests_platform PRIVATE ${DND_TESTS_INCLUDES})
+if(DND_CATCH2_MODE)
+    target_compile_definitions(tests_platform PRIVATE DND_WITH_CATCH2)
+endif()
 target_link_libraries(tests_platform PRIVATE engine)
 add_test(NAME platform_tests COMMAND tests_platform)
 
 add_executable(tests_integration test_main.cpp integration_tests/integration_tests.cpp
                                  integration_tests/combat_play_tests.cpp)
 target_include_directories(tests_integration PRIVATE ${DND_TESTS_INCLUDES})
+if(DND_CATCH2_MODE)
+    target_compile_definitions(tests_integration PRIVATE DND_WITH_CATCH2)
+endif()
 target_compile_definitions(tests_integration PRIVATE DND_ASSETS_ROOT="${DND_ASSETS_DIR}")
 target_link_libraries(tests_integration PRIVATE game_logic)
 add_test(NAME integration_tests COMMAND tests_integration)
@@ -45,11 +69,17 @@ add_test(NAME integration_tests COMMAND tests_integration)
 # Испытания схемы управления (docs/controls.md): маппинг действий, камера, пикинг
 add_executable(tests_controls test_main.cpp controls_tests/controls_tests.cpp)
 target_include_directories(tests_controls PRIVATE ${DND_TESTS_INCLUDES})
+if(DND_CATCH2_MODE)
+    target_compile_definitions(tests_controls PRIVATE DND_WITH_CATCH2)
+endif()
 target_link_libraries(tests_controls PRIVATE game_logic)
 add_test(NAME controls_tests COMMAND tests_controls)
 
 add_executable(tests_golden test_main.cpp golden/golden_tests.cpp)
 target_include_directories(tests_golden PRIVATE ${DND_TESTS_INCLUDES})
+if(DND_CATCH2_MODE)
+    target_compile_definitions(tests_golden PRIVATE DND_WITH_CATCH2)
+endif()
 target_compile_definitions(tests_golden PRIVATE DND_GOLDEN_FILE="${DND_GOLDEN_PATH}")
 target_link_libraries(tests_golden PRIVATE rules)
 add_test(NAME golden_tests COMMAND tests_golden)

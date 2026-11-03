@@ -9,7 +9,7 @@
 # Headless-сборка (ядро + правила + тесты, без SDL2/OpenGL)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
-ctest --test-dir build --output-on-failure        # 68 кейсов / 1182 проверки
+ctest --test-dir build --output-on-failure        # 70 кейсов / 1239 проверок (Catch2)
 
 # Полная сборка с окном SDL2 и OpenGL 3.3 Core
 cmake -S . -B build -DDND_WITH_SDL2=ON
@@ -52,7 +52,7 @@ tests/           — rules/engine/platform/integration/golden + benchmarks
 tools/           — json_validator, schema_gen, map_validator, asset_packer
 scripts/         — check_includes.py, hdrcheck.sh, генераторы шрифтовых таблиц
 docs/            — architecture.md, decisions.md (DR-01…10), traceability.md, gost/
-third_party/     — заготовка (stb); SDL2 — системный (таблица 4.16, DR-01)
+third_party/     — stb (stb_image), catch2 (v2.13.10); SDL2 — системный (табл. 4.16)
 ```
 
 ## Направления зависимостей (п. 3.3.2)
@@ -86,8 +86,9 @@ E — конец хода, Tab и 1…4 — выбор бойца, F1 — отл
   инициатива с tie-breaker, temp HP, сопротивления, состояния, attunement,
   экономика действий, слои модификаторов, 19 формул п. Г.13.
 - **Вертикальный срез (Приложение Д):** комната 20×15, Fighter + Rogue vs 2 гоблина.
-- **Качество:** `-Werror`, пресеты MSVC/GCC, 6 уровней тестов + золотой эталон
-  (seed 42) + бенчмарки с порогами; 68 кейсов / 1182 проверки, ctest 6/6.
+- **Качество:** `-Werror`, пресеты MSVC/GCC, 6 уровней тестов (Catch2 v2,
+  fallback — микро-каркас) + золотой эталон (seed 42) + бенчмарки с порогами;
+  70 кейсов / 1239 проверок, ctest 6/6.
 
 ## Документация
 

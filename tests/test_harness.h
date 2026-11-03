@@ -1,12 +1,20 @@
-// tests/test_harness.h — минимальный каркас модульного тестирования.
+// tests/test_harness.h — каркас модульного тестирования (таблица 4.16: Catch2).
 //
-// ПРОЕКТНОЕ РЕШЕНИЕ (docs/decisions.md, DR-10): таблица 4.16 ТЗ DOC-04 фиксирует
-// Catch2 (BSL-1.0) как фреймворк тестов. Библиотека ещё не внесена в third_party/,
-// поэтому используется совместимый по синтаксису микро-каркас с тем же набором
-// макросов: TEST_CASE, SECTION, REQUIRE, REQUIRE_FALSE, CHECK, INFO.
-// Переход на Catch2 выполняется заменой этого заголовка на <catch2/catch_all.hpp>
-// и подключением цели Catch2::Catch2WithMain — исходный код тестов не меняется.
+// ПРОЕКТНОЕ РЕШЕНИЕ (docs/decisions.md, DR-10): если определён DND_WITH_CATCH2
+// и в third_party/catch2/ есть catch.hpp, используется настоящий Catch2 v2
+// (BSL-1.0); иначе — совместимый по синтаксису микро-каркас (ниже). Исходный
+// код тестов в обоих режимах одинаков: TEST_CASE, SECTION, REQUIRE,
+// REQUIRE_FALSE, CHECK, INFO.
 #pragma once
+
+#if defined(DND_WITH_CATCH2) && defined(__has_include)
+#  if __has_include(<catch2/catch.hpp>)
+#    include <catch2/catch.hpp> // точка входа main() — только в test_main.cpp
+#    define DND_TEST_HARNESS_CATCH2 1
+#  endif
+#endif
+
+#ifndef DND_TEST_HARNESS_CATCH2
 
 #include <cmath>
 #include <cstdio>
@@ -117,7 +125,10 @@ inline int run_all(const char* filter = nullptr) {
 
 #define INFO(msg) std::printf("  INFO: %s\n", static_cast<const char*>(msg))
 
-// Точное сравнение чисел с плавающей точкой (для вероятностей, п. Г.13)
+#endif // DND_TEST_HARNESS_CATCH2
+
+// Общая вспомогательная функция (используется в обоих режимах): точное
+// сравнение чисел с плавающей точкой (для вероятностей, п. Г.13)
 inline bool approx_equal(double a, double b, double eps = 1e-9) {
     return std::fabs(a - b) <= eps;
 }
