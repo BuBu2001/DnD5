@@ -212,7 +212,7 @@ struct WindowedOptions {
 int run_windowed(const core::Config& config, const WindowedOptions& options) {
     // --- окно и контекст (FR-E01, FR-E02, FR-E20) -------------------------------
     platform::WindowSettings settings;
-    settings.title = config.get_string("window.title", "dnd_engine V0.4");
+    settings.title = config.get_string("window.title", "dnd_engine V0.8");
     settings.window_width = static_cast<std::uint32_t>(config.get_int("window.width", 1280));
     settings.window_height = static_cast<std::uint32_t>(config.get_int("window.height", 720));
     settings.fullscreen = config.get_bool("window.fullscreen", false);
@@ -291,7 +291,7 @@ int run_windowed(const core::Config& config, const WindowedOptions& options) {
     (void)viewport;
 
     auto title = std::make_shared<ui::Label>(
-        options.demo_scene ? "D&D 5e — каркас движка V0.4"
+        options.demo_scene ? "D&D 5e — движок V0.8"
                            : "D&D 5e — бой (вертикальный срез, Приложение Д)");
     title->set_name("title");
     title->set_position(ui::Vec2{16.f, 16.f});
@@ -593,7 +593,7 @@ int run_headless() {
 
 int main(int argc, char** argv) {
     core::Log::instance().set_level(core::LogLevel::Info);
-    core::Log::instance().info("dnd_engine V0.4 — каркас движка (АБВГ.00004)");
+    core::Log::instance().info("dnd_engine V0.8 — движок D&D 5e (АБВГ.00004)");
 
     core::Config config;
     const auto loaded = config.load_from_file("assets/config.ini");
@@ -613,6 +613,12 @@ int main(int argc, char** argv) {
         else if (arg.rfind("--frames=", 0) == 0) max_frames = std::atoi(arg.c_str() + 9);
         else if (arg.rfind("--screenshot=", 0) == 0) screenshot = arg.substr(13);
     }
+
+    // В headless-сборке (DND_WITH_SDL2=OFF) параметры окна не используются:
+    // подавляем предупреждение -Wunused-but-set-variable (-Werror, NFR-E12).
+    (void)max_frames;
+    (void)demo_scene;
+    (void)screenshot;
 
 #ifdef DND_ENGINE_WITH_SDL2
     if (windowed) {

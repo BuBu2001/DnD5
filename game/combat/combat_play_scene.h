@@ -184,7 +184,14 @@ public:
 
     void end_turn() {
         if (battle_over_) return;
-        status_ = "Конец хода: " + current_name();
+        // UI-S11: непотраченные ресурсы хода подсвечиваются в конце хода как
+        // напоминание (борьба с типовой ошибкой игрока). Только DTO-уровень правил.
+        const std::string reminder = rules::unused_resources_reminder(current_turn_resources());
+        if (!reminder.empty()) {
+            status_ = "Конец хода: " + current_name() + " — " + reminder;
+        } else {
+            status_ = "Конец хода: " + current_name();
+        }
         advance_turn();
     }
 
@@ -315,16 +322,21 @@ public:
         return rules::to_dto(combat_.initiative(), round_, active_index_);
     }
     rules::TurnResourceBarDTO turn_resources_dto() const {
+        return rules::to_dto(current_turn_resources(), current_name());
+    }
+    // Снимок ресурсов хода активного юнита — единый источник для панели ресурсов
+    // и напоминания UI-S11 (только DTO-уровень правил, E-D12).
+    rules::TurnResources current_turn_resources() const {
         rules::TurnResources res;
-        std::string name = "—";
         const std::size_t idx = active_unit_index();
         if (idx != kNone) {
             const auto& unit = combat_.combatant(idx);
             res.movement_remaining_feet = unit.movement_remaining_feet;
             res.action_used = unit.action_used;
-            name = unit.name;
+            // Реакции в MVP отключены (FR-K63) — в напоминание не попадают.
+            res.reaction_used = true;
         }
-        return rules::to_dto(res, name);
+        return res;
     }
     std::size_t selected() const { return selected_; }
     void set_selected(std::size_t idx) {

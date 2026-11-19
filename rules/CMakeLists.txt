@@ -7,6 +7,7 @@ add_library(rules STATIC
     features.cpp
     items.cpp
     random_provider.cpp
+    rest.cpp
 )
 
 target_include_directories(rules PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

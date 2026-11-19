@@ -8,6 +8,7 @@
 // (NFR-E10, п. 4.8.2). DTO не содержат ссылок и указателей на внутренние объекты.
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -163,3 +163,17 @@
 | FR-E45 (загрузка растров, PNG) | engine/resource/texture_loader | `TextureLoader::load_png/decode_png` | integration: `texture_loader_png` |
 | FR-E50…E52 (звук в бою) | game/combat/combat_play_scene, engine/audio | `set_audio`, `play_sfx` | оконный прогон; отказ аудио не прерывает игру (п. 4.2.3) |
 | E-D12 (боевые панели — только DTO) | game/main.cpp, game/ui_widgets | `initiative_dto/turn_resources_dto`, `AttackResolvedEvent` | integration: `ui_widgets_show_full_breakdown`; оконный прогон |
+
+## 12. Дополнения V0.8 (отдых, состязания, напоминание о ресурсах)
+
+| Требование | Модуль | Символы | Проверка |
+|------------|--------|---------|----------|
+| FR-S60 (кубики жизни, короткий отдых) | rules/rest | `HitDicePool::spend`, `perform_short_rest` | rules: `rest_hit_dice_pool`, `short_rest_heals_with_hit_dice`, `short_rest_rejects_invalid_spend` |
+| FR-S60 (кость хитов из данных класса, DOC-01 OQ-01) | assets/data/classes, rules/rest | поле `hit_die`, параметр `hit_die_sides` | rules: `short_rest_heals_with_hit_dice` (d10); DATA-E01 |
+| FR-S61 (условия длинного отдыха) | rules/rest | `evaluate_long_rest`, `kLongRestMinHours`, `kLongRestMinSleepHours`, `kLongRestPeriodHours`, `kRestInterruptHours` | rules: `long_rest_gate_rules` |
+| FR-S61 (эффекты длинного отдыха) | rules/rest | `apply_long_rest` | rules: `long_rest_full_recovery` |
+| FR-S62 (кубиков = уровню) | rules/rest | `HitDicePool.total` | rules: `rest_hit_dice_pool` |
+| AC-K18 (настройка занимает короткий отдых) | rules/items | `AttunementSet::request_attune/rest` | rules: `items_components` (контракт rest()); фиксация — CHANGELOG V0.8, DR-11 |
+| FR-S24 (состязания проверок) | rules/contest | `resolve_contest`, `ContestResult` | rules: `contest_higher_total_wins`, `contest_tie_means_no_one_succeeds`, `contest_advantage_per_side` |
+| UI-S11 (напоминание о непотраченных ресурсах) | rules/dto_convert, game/combat | `unused_resources_reminder`, `CombatPlayScene::end_turn`, `CombatPlayScene::current_turn_resources` | rules: `unused_resources_reminder` |
+| Исправление сборки V0.7 (NFR-E12, -Werror) | rules/dto.h, game/main.cpp | `#include <cstdint>`, `(void)` | scripts/hdrcheck.sh; headless и DND_WITH_SDL2=ON сборки, ctest 6/6 |

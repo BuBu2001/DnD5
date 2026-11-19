@@ -121,4 +121,27 @@ inline CharacterSummaryDTO make_summary(const std::string& name, int level, int 
     return dto;
 }
 
+// UI-S11 (M): непотраченные ресурсы подсвечиваются в конце хода как напоминание.
+// Возвращает строку «Не потрачено: …» или пустую строку, если всё израсходовано.
+// bonus_action_available=false не выводит бонусное действие (разрешения не было
+// — FR-S42), reaction_used=true означает «реакция недоступна» (MVP: реакции
+// отключены настройкой — FR-K63).
+inline std::string unused_resources_reminder(const TurnResources& r,
+                                             bool bonus_action_available = false) {
+    std::vector<std::string> parts;
+    if (!r.action_used) parts.push_back("действие");
+    if (bonus_action_available && !r.bonus_action_used) parts.push_back("бонусное действие");
+    if (!r.reaction_used) parts.push_back("реакция");
+    if (r.movement_remaining_feet > 0) {
+        parts.push_back("перемещение " + std::to_string(r.movement_remaining_feet) + " фт");
+    }
+    if (parts.empty()) return {};
+    std::string out = "Не потрачено: ";
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        if (i != 0) out += ", ";
+        out += parts[i];
+    }
+    return out;
+}
+
 } // namespace rules

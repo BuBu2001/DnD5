@@ -9,6 +9,7 @@
 #include "rules/action_economy.h"
 #include "rules/attack.h"
 #include "rules/conditions.h"
+#include "rules/contest.h"
 #include "rules/damage.h"
 #include "rules/dice_roller.h"
 #include "rules/dto_convert.h"
@@ -21,6 +22,7 @@
 #include "rules/modifier_stack.h"
 #include "rules/proficiency.h"
 #include "rules/random_provider.h"
+#include "rules/rest.h"
 #include "rules/turn_state_machine.h"
 #include "test_harness.h"
 
@@ -874,4 +876,199 @@ TEST_CASE("dto_conversion_for_ui", "[rules][E-D12][UI-E03]") {
     REQUIRE(tracker.entries[0].entity == 1);
     REQUIRE(tracker.entries[0].is_active);
     REQUIRE_FALSE(tracker.entries[1].is_active);
+}
+
+// --- V0.8: отдых и восстановление (DOC-02 FR-S60, FR-S61; AC-K18) -------------
+
+TEST_CASE("rest_hit_dice_pool", "[rules][FR-S60]") {
+    rules::HitDicePool pool;
+    pool.total = 5; // уровень 5 → пять кубиков жизни
+    pool.used = 0;
+    REQUIRE(pool.available() == 5);
+    REQUIRE(pool.spend(3));
+    REQUIRE(pool.available() == 2);
+    REQUIRE_FALSE(pool.spend(3));    // больше, чем осталось
+    REQUIRE(pool.available() == 2);
+    REQUIRE_FALSE(pool.spend(0));    // минимум один кубик (FR-S60)
+    REQUIRE(pool.spend(2));
+    REQUIRE(pool.available() == 0);
+    pool.restore_all();              // длинный отдых возвращает всё
+    REQUIRE(pool.available() == 5);
+    pool.used = 4;
+    pool.restore(2);                 // частичное восстановление (RAW-вариант)
+    REQUIRE(pool.available() == 3);
+    pool.restore(10);                // не уходит в минус
+    REQUIRE(pool.available() == 5);
+}
+
+TEST_CASE("short_rest_heals_with_hit_dice", "[rules][FR-S60][AC-K04-adj]") {
+    FixedRng rng(6);          // кость хитов: фиксированное значение
+    rules::DiceRoller roller(rng);
+    rules::HitDicePool pool;
+    pool.total = 3;                  // уровень 3
+    rules::HealthState health;
+    health.hp_max = 25;
+    health.hp_current = 10;
+
+    // Воин d10, CON +2: 2 кубика → (6+2) + (6+2) = 16 → 10 + 16 = 26 → cap 25.
+    const auto result = rules::perform_short_rest(health, pool, roller, 10, 2, 2);
+    REQUIRE(result.ok);
+    REQUIRE(result.dice_spent == 2);
+    REQUIRE(result.hp_restored == 15);          // 16 запрошено, 15 с учётом максимума
+    REQUIRE(health.hp_current == 25);
+    REQUIRE(health.hp_current == health.hp_max);
+    REQUIRE(pool.available() == 1);             // 3 − 2 = 1
+    REQUIRE(result.rolls.size() == 2);
+    REQUIRE(result.resources_recovered);        // слоты/ресурсы класса (FR-S60)
+
+    // Отрицательный CON: кость + Mod(CON), минимум 0 за кубик (DOC-02).
+    rules::HealthState health2;
+    health2.hp_max = 20;
+    health2.hp_current = 8;
+    FixedRng rng2(1);                    // кость 1, CON −2 → 0 за кубик
+    rules::DiceRoller roller2(rng2);
+    rules::HitDicePool pool2;
+    pool2.total = 2;
+    const auto r2 = rules::perform_short_rest(health2, pool2, roller2, 10, -2, 1);
+    REQUIRE(r2.ok);
+    REQUIRE(r2.hp_restored == 0);               // 1 + (−2) → 0
+    REQUIRE(health2.hp_current == 8);
+    REQUIRE(pool2.available() == 1);            // кубик всё равно потрачен
+}
+
+TEST_CASE("short_rest_rejects_invalid_spend", "[rules][FR-S60]") {
+    FixedRng rng(5);
+    rules::DiceRoller roller(rng);
+    rules::HitDicePool pool;
+    pool.total = 2;
+    rules::HealthState health;
+    health.hp_max = 20;
+    health.hp_current = 5;
+
+    auto r0 = rules::perform_short_rest(health, pool, roller, 10, 2, 0);
+    REQUIRE_FALSE(r0.ok);                        // минимум один кубик
+    REQUIRE(r0.hp_restored == 0);
+    REQUIRE(pool.available() == 2);              // ничего не потрачено
+
+    auto r3 = rules::perform_short_rest(health, pool, roller, 10, 2, 3);
+    REQUIRE_FALSE(r3.ok);                        // больше, чем доступно
+    REQUIRE_FALSE(r3.reason.empty());            // причина — для журнала (FR-E48)
+    REQUIRE(health.hp_current == 5);
+
+    auto rb = rules::perform_short_rest(health, pool, roller, 1, 2, 1);
+    REQUIRE_FALSE(rb.ok);                        // битые данные: кость < 2 (NFR-E14)
+    REQUIRE(health.hp_current == 5);
+    REQUIRE(pool.available() == 2);
+}
+
+TEST_CASE("long_rest_gate_rules", "[rules][FR-S61]") {
+    // Нормальный отдых: 8 часов, из них 6 сна, прошло ≥ 24 ч, без прерываний.
+    auto ok = rules::evaluate_long_rest(8, 6, 24, 0);
+    REQUIRE(ok.ok);
+    REQUIRE(ok.reason.empty());
+
+    REQUIRE_FALSE(rules::evaluate_long_rest(7, 6, 24, 0).ok);   // < 8 часов
+    REQUIRE_FALSE(rules::evaluate_long_rest(8, 5, 24, 0).ok);   // сна < 6 часов
+    REQUIRE_FALSE(rules::evaluate_long_rest(8, 6, 23, 0).ok);   // чаще раза в 24 ч
+    REQUIRE_FALSE(rules::evaluate_long_rest(8, 6, 24, 1).ok);   // прерван: ≥ 1 ч боя
+    REQUIRE_FALSE(rules::evaluate_long_rest(10, 8, 30, 2).ok);  // прерывание сбрасывает период
+
+    const auto fail = rules::evaluate_long_rest(8, 6, 23, 0);
+    REQUIRE_FALSE(fail.reason.empty());          // причина — для журнала (FR-E48)
+}
+
+TEST_CASE("long_rest_full_recovery", "[rules][FR-S61][FR-S60]") {
+    rules::HitDicePool pool;
+    pool.total = 4;
+    pool.used = 3;                               // потрачено 3 кубика за день
+    rules::HealthState health;
+    health.hp_max = 30;
+    health.hp_current = 12;
+    health.temp_hp = 5;
+
+    const auto result = rules::apply_long_rest(health, pool);
+    REQUIRE(health.hp_current == 30);            // полное восстановление HP
+    REQUIRE(result.hp_restored == 18);
+    REQUIRE(health.temp_hp == 0);                // temp_hp снимаются
+    REQUIRE(pool.available() == 4);              // кубики возвращены полностью (DOC-02)
+    REQUIRE(result.hit_dice_recovered == 3);
+
+    // Двойное применение не даёт лишнего (идемпотентность, FR-K83-стиль).
+    const auto again = rules::apply_long_rest(health, pool);
+    REQUIRE(again.hp_restored == 0);
+    REQUIRE(again.hit_dice_recovered == 0);
+}
+
+// --- V0.8: состязания проверок (DOC-02 FR-S24) ---------------------------------
+
+TEST_CASE("contest_higher_total_wins", "[rules][FR-S24]") {
+    // Плут (Скрытность +5) против стражника (Восприятие +1): 10 и 7.
+    FixedRng rng(10);
+    rng.set_sequence({10, 7});
+    rules::DiceRoller roller(rng);
+    const auto c = rules::resolve_contest(roller, "Плут", 5, "Стражник", 1);
+    REQUIRE(c.active.taken == 10);
+    REQUIRE(c.opposing.taken == 7);
+    REQUIRE(c.active.total == 15);
+    REQUIRE(c.opposing.total == 8);
+    REQUIRE(c.active_won);
+    REQUIRE_FALSE(c.tie);
+    REQUIRE_FALSE(c.active.success);             // у состязания нет DC-успеха
+    REQUIRE_FALSE(c.description.empty());
+}
+
+TEST_CASE("contest_tie_means_no_one_succeeds", "[rules][FR-S24]") {
+    // Оба итога равны: ничья, ни одна сторона не достигла цели (FR-S24).
+    FixedRng rng(9);
+    rng.set_sequence({9, 9});
+    rules::DiceRoller roller(rng);
+    const auto c = rules::resolve_contest(roller, "Плут", 3, "Стражник", 3);
+    REQUIRE(c.tie);
+    REQUIRE_FALSE(c.active_won);
+    REQUIRE(c.active.total == c.opposing.total);
+}
+
+TEST_CASE("contest_advantage_per_side", "[rules][FR-S24][FR-S07]") {
+    // Преимущество у активной стороны: берётся больший из двух кубиков.
+    FixedRng rng(4);
+    rng.set_sequence({4, 14, 8});
+    rules::DiceRoller roller(rng);
+    const auto c = rules::resolve_contest(roller, "Плут", 2, "Стражник", 0,
+                                          /*active_advantage=*/true);
+    REQUIRE(c.active.dice.size() == 2);
+    REQUIRE(c.active.taken == 14);               // max(4, 14)
+    REQUIRE(c.opposing.dice.size() == 1);
+    REQUIRE(c.active_won);
+    REQUIRE_FALSE(c.tie);
+}
+
+// --- V0.8: напоминание о непотраченных ресурсах (UI-S11) -----------------------
+
+TEST_CASE("unused_resources_reminder", "[rules][UI-S11]") {
+    rules::TurnResources r;
+    rules::reset_turn(r, 30);
+
+    // Ничего не потрачено: перечисляются действие и перемещение (реакция в MVP
+    // недоступна — reaction_used=true; бонусного действия не было разрешения).
+    r.reaction_used = true;
+    auto s = rules::unused_resources_reminder(r);
+    REQUIRE(s.find("действие") != std::string::npos);
+    REQUIRE(s.find("перемещение 30 фт") != std::string::npos);
+    REQUIRE(s.find("бонусное действие") == std::string::npos);
+    REQUIRE(s.find("реакция") == std::string::npos);
+
+    // Всё потрачено: пустая строка.
+    r.action_used = true;
+    r.movement_remaining_feet = 0;
+    REQUIRE(rules::unused_resources_reminder(r).empty());
+
+    // Бонусное действие выводится только при наличии разрешения (FR-S42).
+    rules::TurnResources rb;
+    rb.action_used = true;
+    rb.movement_remaining_feet = 0;
+    rb.bonus_action_used = false;
+    rb.reaction_used = true;   // реакция в MVP недоступна (FR-K63)
+    REQUIRE(rules::unused_resources_reminder(rb).empty());
+    REQUIRE(rules::unused_resources_reminder(rb, /*bonus_action_available=*/true)
+                .find("бонусное действие") != std::string::npos);
 }
